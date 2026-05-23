@@ -1308,23 +1308,92 @@
   });
 
   // ============================================================
-  //  VIEW : ADMIN
+  //  VIEW : ADMIN (panneau premium multi-onglets)
   // ============================================================
+  // État interne du panneau admin
+  const adminState = {
+    activeTab: 'overview',
+    users: [],
+    sales: [],
+    images: [],
+    stats: null,
+    charts: {},  // instances Chart.js par id
+    filters: {
+      userSearch: '', userRole: '', userStatus: '',
+      saleSearch: '', saleUser: '', saleBrand: '', saleCondition: '',
+      imageSearch: '',
+    },
+    sqlLastResult: null,
+  };
+
+  const adminCloud = () => isCloud() ? Cloud() : null;
+
+  // ---- Switching tabs ----
+  function switchAdminTab(tab) {
+    adminState.activeTab = tab;
+    $$('.admin-tab').forEach(t => t.classList.toggle('is-active', t.dataset.adminTab === tab));
+    $$('.admin-pane').forEach(p => p.hidden = p.dataset.adminPane !== tab);
+    renderAdminPane(tab);
+  }
+
+  $$('.admin-tab').forEach(t => t.addEventListener('click', () => switchAdminTab(t.dataset.adminTab)));
+
+  $('#admin-refresh-btn').addEventListener('click', () => {
+    // Force reload du pane actif
+    renderAdminPane(adminState.activeTab, true);
+    toast('Données actualisées.', 'success');
+  });
+
+  // ---- Entry point appelé par handleRoute ----
   const renderAdmin = () => {
     if (currentUser.role !== 'admin') return;
+    switchAdminTab(adminState.activeTab || 'overview');
+  };
 
-    const totalUsers = store.users.length;
-    const totalSales = store.sales.length;
-    const totalRevenue = store.sales.reduce((s, x) => s + Number(x.sellPrice || 0), 0);
-    const totalProfit = store.sales.reduce((s, x) => s + profitOf(x), 0);
-    const banned = store.users.filter(u => u.status === 'banned').length;
+  // ---- Dispatcher par onglet ----
+  async function renderAdminPane(tab, force = false) {
+    try {
+      if (tab === 'overview') await renderAdminOverview();
+      else if (tab === 'users') await renderAdminUsers();
+      else if (tab === 'sales') await renderAdminSales();
+      else if (tab === 'images') await renderAdminImages();
+      else if (tab === 'sql') renderAdminSQL();
+      if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+    } catch (err) {
+      console.error('Admin render error:', err);
+      toast(err.message || 'Erreur dans le panneau admin.', 'error');
+    }
+  }
+
+  // ============================================================
+  //  ADMIN — OVERVIEW
+  // ============================================================
+  async function renderAdminOverview() {
+    let stats;
+    if (adminCloud()) {
+      stats = await adminCloud().stats.global();
+    } else {
+      stats = {
+        totalUsers: store.users.length,
+        banned: store.users.filter(u => u.status === 'banned').length,
+        totalSales: store.sales.length,
+        totalRevenue: store.sales.reduce((s, x) => s + Number(x.sellPrice || 0), 0),
+        totalProfit: store.sales.reduce((s, x) => s + profitOf(x), 0),
+      };
+    }
+    adminState.stats = stats;
+
+    const totalAdmins = adminCloud()
+      ? (stats.profiles || []).filter(p => p.role === 'admin').length
+      : store.users.filter(u => u.role === 'admin').length;
 
     $('#admin-kpis').innerHTML = [
-      { label: 'Utilisateurs', value: fmtNum(totalUsers), cls: 'kpi-violet' },
-      { label: 'Comptes suspendus', value: fmtNum(banned), cls: 'kpi-red' },
-      { label: 'Articles vendus (global)', value: fmtNum(totalSales), cls: 'kpi-blue' },
-      { label: 'Chiffre d\'affaires (global)', value: fmtEUR(totalRevenue), cls: 'kpi-green' },
-      { label: 'Bénéfice (global)', value: fmtEUR(totalProfit), cls: 'kpi-green' },
+      { label: 'Utilisateurs', value: fmtNum(stats.totalUsers), cls: 'kpi-violet', icon: 'users' },
+      { label: 'Administrateurs', value: fmtNum(totalAdmins), cls: 'kpi-violet', icon: 'shield' },
+      { label: 'Suspendus', value: fmtNum(stats.banned), cls: 'kpi-red', icon: 'shield-ban' },
+      { label: 'Articles vendus', value: fmtNum(stats.totalSales), cls: 'kpi-blue', icon: 'package' },
+      { label: 'CA global', value: fmtEUR(stats.totalRevenue), cls: 'kpi-green', icon: 'trending-up' },
+      { label: 'Bénéfice global', value: fmtEUR(stats.totalProfit), cls: 'kpi-green', icon: 'wallet' },
     ].map(k => `
       <div class="kpi ${k.cls}">
         <span class="kpi-label">${esc(k.label)}</span>
@@ -1332,12 +1401,244 @@
       </div>
     `).join('');
 
-    const tbody = $('#admin-users');
-    tbody.innerHTML = store.users.map(u => {
-      const sales = store.sales.filter(s => s.userId === u.id).length;
-      const isSelf = u.id === currentUser.id;
+    // Charts : seulement en mode cloud (les agrégations mois par mois nécessitent toutes les ventes)
+    if (adminCloud()) {
+      const [revByMonth, signupsByMonth, topSellers, topBrands, condBreak, recent] = await Promise.all([
+        adminCloud().stats.revenueByMonth(),
+        adminCloud().stats.signupsByMonth(),
+        adminCloud().stats.topSellers(5),
+        adminCloud().stats.topBrands(10),
+        adminCloud().stats.conditionBreakdown(),
+        adminCloud().stats.recentActivity(10),
+      ]);
+
+      drawAdminRevenueChart(revByMonth);
+      drawAdminSignupsChart(signupsByMonth);
+      drawAdminBrandsChart(topBrands);
+      drawAdminConditionsChart(condBreak);
+      renderTopSellers(topSellers);
+      renderAdminActivity(recent);
+    } else {
+      // Mode local : on désactive les charts détaillés
+      ['admin-chart-revenue', 'admin-chart-signups', 'admin-chart-brands', 'admin-chart-conditions']
+        .forEach(id => {
+          const wrap = $('#' + id)?.parentElement;
+          if (wrap) wrap.innerHTML = '<div class="admin-empty">Disponible en mode cloud (Supabase) uniquement.</div>';
+        });
+      $('#admin-top-sellers').innerHTML = '<div class="admin-empty">Disponible en mode cloud.</div>';
+      $('#admin-activity').innerHTML = '<div class="admin-empty">Disponible en mode cloud.</div>';
+    }
+  }
+
+  function destroyChart(id) {
+    if (adminState.charts[id]) { adminState.charts[id].destroy(); delete adminState.charts[id]; }
+  }
+
+  function drawAdminRevenueChart(data) {
+    const ctx = $('#admin-chart-revenue')?.getContext('2d');
+    if (!ctx) return;
+    destroyChart('revenue');
+    const c = chartColors();
+    const labels = data.map(d => formatMonthLabel(d.key));
+    adminState.charts.revenue = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'CA', data: data.map(d => Number(d.revenue.toFixed(2))), backgroundColor: c.greenFill, borderColor: c.green, borderWidth: 1.5, borderRadius: 6 },
+          { label: 'Bénéfice', data: data.map(d => Number(d.profit.toFixed(2))), backgroundColor: 'rgba(124, 92, 255, 0.18)', borderColor: '#7c5cff', borderWidth: 1.5, borderRadius: 6 },
+        ],
+      },
+      options: { ...baseChartOptions() },
+    });
+  }
+
+  function drawAdminSignupsChart(data) {
+    const ctx = $('#admin-chart-signups')?.getContext('2d');
+    if (!ctx) return;
+    destroyChart('signups');
+    const c = chartColors();
+    const labels = data.map(d => formatMonthLabel(d.key));
+    adminState.charts.signups = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Inscriptions',
+          data: data.map(d => d.count),
+          borderColor: '#7c5cff',
+          backgroundColor: 'rgba(124, 92, 255, 0.15)',
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: '#7c5cff',
+        }],
+      },
+      options: {
+        ...baseChartOptions(),
+        scales: {
+          x: { grid: { display: false }, ticks: { color: c.text } },
+          y: {
+            grid: { color: c.grid },
+            ticks: { color: c.text, callback: (v) => Number.isInteger(v) ? v : '' },
+            beginAtZero: true,
+          },
+        },
+        plugins: { ...baseChartOptions().plugins, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y} inscription(s)` } } },
+      },
+    });
+  }
+
+  function drawAdminBrandsChart(data) {
+    const ctx = $('#admin-chart-brands')?.getContext('2d');
+    if (!ctx) return;
+    destroyChart('brands');
+    const c = chartColors();
+    adminState.charts.brands = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.map(d => d.brand),
+        datasets: [{
+          label: 'Ventes',
+          data: data.map(d => d.count),
+          backgroundColor: data.map((_, i) => `hsl(${260 + i * 12}, 70%, 60%)`),
+          borderRadius: 6,
+        }],
+      },
+      options: {
+        ...baseChartOptions(),
+        indexAxis: 'y',
+        plugins: { legend: { display: false }, tooltip: baseChartOptions().plugins.tooltip },
+        scales: {
+          x: { grid: { color: c.grid }, ticks: { color: c.text } },
+          y: { grid: { display: false }, ticks: { color: c.text, font: { family: 'Manrope', size: 11 } } },
+        },
+      },
+    });
+  }
+
+  function drawAdminConditionsChart(data) {
+    const ctx = $('#admin-chart-conditions')?.getContext('2d');
+    if (!ctx) return;
+    destroyChart('conditions');
+    const c = chartColors();
+    const palette = ['#22c55e', '#7c5cff', '#3b82f6', '#f59e0b', '#ef4444', '#94a3b8'];
+    adminState.charts.conditions = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: data.map(d => d.condition),
+        datasets: [{
+          data: data.map(d => d.count),
+          backgroundColor: data.map((_, i) => palette[i % palette.length]),
+          borderColor: 'transparent',
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        responsive: true,
+        cutout: '60%',
+        plugins: {
+          legend: { position: 'right', labels: { color: c.text, font: { family: 'Manrope', size: 12 }, boxWidth: 12 } },
+          tooltip: baseChartOptions().plugins.tooltip,
+        },
+      },
+    });
+  }
+
+  function renderTopSellers(items) {
+    if (!items.length) { $('#admin-top-sellers').innerHTML = '<div class="admin-empty">Aucune vente pour l\'instant.</div>'; return; }
+    $('#admin-top-sellers').innerHTML = items.map((s, i) => {
+      const rankCls = i === 0 ? 'top-rank-1' : i === 1 ? 'top-rank-2' : i === 2 ? 'top-rank-3' : 'top-rank-other';
       return `
-        <tr data-uid="${u.id}">
+        <div class="top-item">
+          <div class="top-rank ${rankCls}">${i + 1}</div>
+          <div class="top-info">
+            <div class="top-name">${esc(s.name)}</div>
+            <div class="top-meta">${esc(s.email)} · ${s.count} vente${s.count > 1 ? 's' : ''}</div>
+          </div>
+          <div class="top-value">+${fmtEUR(s.profit)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderAdminActivity(items) {
+    if (!items.length) { $('#admin-activity').innerHTML = '<div class="admin-empty">Pas d\'activité récente.</div>'; return; }
+    $('#admin-activity').innerHTML = items.map(a => {
+      const ago = timeAgo(a.when);
+      const iconCls = a.type === 'signup' ? 'activity-icon-signup' : 'activity-icon-sale';
+      const icon = a.type === 'signup' ? 'user-plus' : 'shopping-bag';
+      return `
+        <div class="activity-item">
+          <div class="activity-icon ${iconCls}"><i data-lucide="${icon}"></i></div>
+          <div class="activity-text">
+            <div class="activity-label">${esc(a.label)}</div>
+            <div class="activity-meta">${esc(a.meta || '')}</div>
+          </div>
+          <div class="activity-time">${ago}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function formatMonthLabel(yyyyMm) {
+    const [y, m] = yyyyMm.split('-');
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return `${months[Number(m) - 1]} ${y.slice(2)}`;
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'à l\'instant';
+    if (diffMin < 60) return `il y a ${diffMin} min`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `il y a ${diffH}h`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7) return `il y a ${diffD}j`;
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  }
+
+  // ============================================================
+  //  ADMIN — USERS
+  // ============================================================
+  async function renderAdminUsers() {
+    if (adminCloud()) {
+      adminState.users = await adminCloud().admin.listUsers();
+    } else {
+      adminState.users = store.users.map(u => ({
+        ...u,
+        salesCount: store.sales.filter(s => s.userId === u.id).length,
+        revenue: store.sales.filter(s => s.userId === u.id).reduce((sum, s) => sum + Number(s.sellPrice || 0), 0),
+        profit: store.sales.filter(s => s.userId === u.id).reduce((sum, s) => sum + profitOf(s), 0),
+      }));
+    }
+    drawAdminUsersTable();
+  }
+
+  function drawAdminUsersTable() {
+    const q = adminState.filters.userSearch.toLowerCase();
+    const roleF = adminState.filters.userRole;
+    const statusF = adminState.filters.userStatus;
+    const list = adminState.users.filter(u => {
+      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+      if (roleF && u.role !== roleF) return false;
+      if (statusF && u.status !== statusF) return false;
+      return true;
+    });
+
+    if (!list.length) {
+      $('#admin-users-tbody').innerHTML = '<tr><td colspan="9"><div class="admin-empty">Aucun utilisateur ne correspond.</div></td></tr>';
+      return;
+    }
+
+    $('#admin-users-tbody').innerHTML = list.map(u => {
+      const isSelf = u.id === currentUser.id;
+      const profitCls = u.profit > 0 ? 'positive' : u.profit < 0 ? 'negative' : '';
+      return `
+        <tr data-uid="${esc(u.id)}">
           <td>
             <div class="user-cell">
               <div class="user-avatar">${esc(initials(u.name))}</div>
@@ -1346,73 +1647,527 @@
           </td>
           <td>${esc(u.email)}</td>
           <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role === 'admin' ? 'Admin' : 'User'}</span></td>
-          <td>${fmtNum(sales)}</td>
+          <td class="text-right num">${fmtNum(u.salesCount)}</td>
+          <td class="text-right num">${fmtEUR(u.revenue)}</td>
+          <td class="text-right num ${profitCls}">${fmtEUR(u.profit)}</td>
           <td>${new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
           <td><span class="badge ${u.status === 'banned' ? 'badge-banned' : 'badge-active'}">${u.status === 'banned' ? 'Suspendu' : 'Actif'}</span></td>
           <td class="text-right">
-            ${isSelf ? '<span style="color:var(--text-3);font-size:12px">—</span>' :
-              `<button class="btn-icon" data-admin-toggle-ban="${u.id}" title="${u.status === 'banned' ? 'Réactiver' : 'Suspendre'}">
-                 <i data-lucide="${u.status === 'banned' ? 'shield-check' : 'shield-ban'}"></i>
-               </button>
-               <button class="btn-icon" data-admin-toggle-role="${u.id}" title="${u.role === 'admin' ? 'Retirer admin' : 'Promouvoir admin'}">
-                 <i data-lucide="${u.role === 'admin' ? 'user' : 'crown'}"></i>
-               </button>
-               <button class="btn-icon danger" data-admin-delete="${u.id}" title="Supprimer">
-                 <i data-lucide="trash-2"></i>
-               </button>`
-            }
+            <button class="btn-icon" data-admin-view-user="${esc(u.id)}" title="Voir les ventes"><i data-lucide="eye"></i></button>
+            <button class="btn-icon" data-admin-edit-user="${esc(u.id)}" title="Modifier"><i data-lucide="pencil"></i></button>
+            ${isSelf ? '' : `
+              <button class="btn-icon" data-admin-reset-pwd="${esc(u.id)}" title="Envoyer reset mot de passe"><i data-lucide="key"></i></button>
+              <button class="btn-icon" data-admin-toggle-ban="${esc(u.id)}" title="${u.status === 'banned' ? 'Réactiver' : 'Suspendre'}">
+                <i data-lucide="${u.status === 'banned' ? 'shield-check' : 'shield-ban'}"></i>
+              </button>
+              <button class="btn-icon" data-admin-toggle-role="${esc(u.id)}" title="${u.role === 'admin' ? 'Retirer admin' : 'Promouvoir admin'}">
+                <i data-lucide="${u.role === 'admin' ? 'user' : 'crown'}"></i>
+              </button>
+              <button class="btn-icon danger" data-admin-delete-user="${esc(u.id)}" title="Supprimer"><i data-lucide="trash-2"></i></button>
+            `}
           </td>
         </tr>
       `;
     }).join('');
-
     if (window.lucide) lucide.createIcons({ icons: lucide.icons });
-  };
+  }
 
-  $('#admin-users').addEventListener('click', (e) => {
-    const banBtn = e.target.closest('[data-admin-toggle-ban]');
-    const roleBtn = e.target.closest('[data-admin-toggle-role]');
-    const delBtn = e.target.closest('[data-admin-delete]');
+  // Filtres users
+  $('#admin-users-search').addEventListener('input', (e) => { adminState.filters.userSearch = e.target.value; drawAdminUsersTable(); });
+  $('#admin-users-role').addEventListener('change', (e) => { adminState.filters.userRole = e.target.value; drawAdminUsersTable(); });
+  $('#admin-users-status').addEventListener('change', (e) => { adminState.filters.userStatus = e.target.value; drawAdminUsersTable(); });
 
-    if (banBtn) {
-      const id = banBtn.dataset.adminToggleBan;
-      const u = store.users.find(x => x.id === id);
-      if (!u) return;
-      u.status = u.status === 'banned' ? 'active' : 'banned';
-      saveStore();
-      toast(u.status === 'banned' ? 'Utilisateur suspendu.' : 'Utilisateur réactivé.', 'success');
-      renderAdmin();
+  // Actions users (event delegation)
+  $('#admin-users-tbody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-admin-view-user], button[data-admin-edit-user], button[data-admin-reset-pwd], button[data-admin-toggle-ban], button[data-admin-toggle-role], button[data-admin-delete-user]');
+    if (!btn) return;
+    const id = btn.dataset.adminViewUser || btn.dataset.adminEditUser || btn.dataset.adminResetPwd
+      || btn.dataset.adminToggleBan || btn.dataset.adminToggleRole || btn.dataset.adminDeleteUser;
+    const u = adminState.users.find(x => x.id === id);
+    if (!u) return;
+
+    if (btn.dataset.adminViewUser) return openUserSalesModal(u);
+    if (btn.dataset.adminEditUser) return openEditUserModal(u);
+    if (btn.dataset.adminResetPwd) return adminResetPassword(u);
+    if (btn.dataset.adminToggleBan) return adminToggleBan(u);
+    if (btn.dataset.adminToggleRole) return adminToggleRole(u);
+    if (btn.dataset.adminDeleteUser) return adminDeleteUser(u);
+  });
+
+  async function openUserSalesModal(u) {
+    let sales = [];
+    try {
+      sales = adminCloud()
+        ? await adminCloud().admin.getUserSales(u.id)
+        : store.sales.filter(s => s.userId === u.id);
+    } catch (err) { toast(err.message, 'error'); return; }
+
+    const rows = sales.slice(0, 50).map(s => `
+      <tr>
+        <td>${esc(s.name)}</td>
+        <td>${esc(s.brand || '—')}</td>
+        <td>${new Date(s.soldAt).toLocaleDateString('fr-FR')}</td>
+        <td class="text-right num">${fmtEUR(s.sellPrice)}</td>
+        <td class="text-right num ${profitOf(s) >= 0 ? 'positive' : 'negative'}">${fmtEUR(profitOf(s))}</td>
+      </tr>
+    `).join('');
+
+    modal({
+      title: `Ventes de ${u.name}`,
+      body: `
+        <p style="margin-bottom:12px;color:var(--text-3)">${sales.length} vente${sales.length > 1 ? 's' : ''} au total${sales.length > 50 ? ' (50 premières affichées)' : ''}.</p>
+        ${sales.length === 0 ? '<div class="admin-empty">Cet utilisateur n\'a aucune vente.</div>' : `
+          <div class="table-wrap" style="max-height:400px">
+            <table class="data-table" style="font-size:12.5px">
+              <thead><tr><th>Article</th><th>Marque</th><th>Date</th><th class="text-right">Vente</th><th class="text-right">Bénéfice</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `}
+      `,
+      actions: [{ label: 'Fermer', variant: 'btn-ghost' }],
+    });
+  }
+
+  function openEditUserModal(u) {
+    modal({
+      title: 'Modifier l\'utilisateur',
+      body: `
+        <label class="field">
+          <span class="field-label">Nom</span>
+          <input type="text" id="edit-user-name" value="${esc(u.name)}" />
+        </label>
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input type="email" id="edit-user-email" value="${esc(u.email)}" />
+        </label>
+        <p class="muted" style="margin-top:4px;font-size:12px">Note : la modification d'email côté Supabase Auth se fait dans Supabase Studio.</p>
+      `,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        {
+          label: 'Enregistrer', variant: 'btn-primary', onClick: async () => {
+            const name = $('#edit-user-name').value.trim();
+            const email = $('#edit-user-email').value.trim();
+            if (!name) { toast('Nom requis.', 'error'); return false; }
+            try {
+              if (adminCloud()) await adminCloud().admin.updateUser(u.id, { name, email });
+              else { u.name = name; u.email = email; saveStore(); }
+              toast('Utilisateur mis à jour.', 'success');
+              renderAdminUsers();
+            } catch (err) { toast(err.message, 'error'); return false; }
+          },
+        },
+      ],
+    });
+  }
+
+  function adminResetPassword(u) {
+    modal({
+      title: 'Réinitialiser le mot de passe ?',
+      body: `<p>Un email de réinitialisation sera envoyé à <strong>${esc(u.email)}</strong>.</p>`,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        {
+          label: 'Envoyer', variant: 'btn-primary', onClick: async () => {
+            if (!adminCloud()) { toast('Disponible uniquement en mode cloud.', 'error'); return; }
+            try {
+              await adminCloud().admin.sendPasswordReset(u.email);
+              toast(`Email envoyé à ${u.email}.`, 'success');
+            } catch (err) { toast(err.message, 'error'); }
+          },
+        },
+      ],
+    });
+  }
+
+  async function adminToggleBan(u) {
+    const newStatus = u.status === 'banned' ? 'active' : 'banned';
+    try {
+      if (adminCloud()) await adminCloud().admin.updateUser(u.id, { status: newStatus });
+      else { u.status = newStatus; saveStore(); }
+      toast(newStatus === 'banned' ? 'Utilisateur suspendu.' : 'Utilisateur réactivé.', 'success');
+      renderAdminUsers();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function adminToggleRole(u) {
+    const newRole = u.role === 'admin' ? 'user' : 'admin';
+    try {
+      if (adminCloud()) await adminCloud().admin.updateUser(u.id, { role: newRole });
+      else { u.role = newRole; saveStore(); }
+      toast(`Rôle modifié : ${newRole}.`, 'success');
+      renderAdminUsers();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  function adminDeleteUser(u) {
+    modal({
+      title: 'Supprimer cet utilisateur ?',
+      body: `<p>L'utilisateur <strong>${esc(u.name)}</strong> et toutes ses ventes seront supprimés définitivement.</p>
+             <p style="font-size:12px;color:var(--text-3);margin-top:8px">Note : le compte d'authentification Supabase devra être supprimé manuellement depuis Supabase Studio.</p>`,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        {
+          label: 'Supprimer', variant: 'btn-danger', onClick: async () => {
+            try {
+              if (adminCloud()) await adminCloud().admin.deleteUser(u.id);
+              else {
+                store.users = store.users.filter(x => x.id !== u.id);
+                store.sales = store.sales.filter(s => s.userId !== u.id);
+                saveStore();
+              }
+              toast('Utilisateur supprimé.', 'success');
+              renderAdminUsers();
+            } catch (err) { toast(err.message, 'error'); }
+          },
+        },
+      ],
+    });
+  }
+
+  // ============================================================
+  //  ADMIN — ALL SALES
+  // ============================================================
+  async function renderAdminSales() {
+    if (adminCloud()) {
+      adminState.sales = await adminCloud().admin.listAllSales();
+    } else {
+      const usersById = Object.fromEntries(store.users.map(u => [u.id, u]));
+      adminState.sales = store.sales.map(s => ({
+        ...s,
+        ownerName: usersById[s.userId]?.name || '—',
+        ownerEmail: usersById[s.userId]?.email || '',
+      }));
     }
-    if (roleBtn) {
-      const id = roleBtn.dataset.adminToggleRole;
-      const u = store.users.find(x => x.id === id);
-      if (!u) return;
-      u.role = u.role === 'admin' ? 'user' : 'admin';
-      saveStore();
-      toast(`Rôle modifié : ${u.role}.`, 'success');
-      renderAdmin();
+    // Populate filters
+    const users = [...new Set(adminState.sales.map(s => `${s.userId}::${s.ownerName}`))]
+      .map(p => { const [id, name] = p.split('::'); return { id, name }; });
+    $('#admin-sales-user').innerHTML = '<option value="">Tous les utilisateurs</option>'
+      + users.map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('');
+    const brands = [...new Set(adminState.sales.map(s => s.brand).filter(Boolean))].sort();
+    $('#admin-sales-brand').innerHTML = '<option value="">Toutes les marques</option>'
+      + brands.map(b => `<option>${esc(b)}</option>`).join('');
+
+    drawAdminSalesTable();
+  }
+
+  function drawAdminSalesTable() {
+    const q = adminState.filters.saleSearch.toLowerCase();
+    const userF = adminState.filters.saleUser;
+    const brandF = adminState.filters.saleBrand;
+    const condF = adminState.filters.saleCondition;
+    const list = adminState.sales.filter(s => {
+      if (q && !s.name.toLowerCase().includes(q) && !(s.ownerName || '').toLowerCase().includes(q)) return false;
+      if (userF && s.userId !== userF) return false;
+      if (brandF && s.brand !== brandF) return false;
+      if (condF && s.condition !== condF) return false;
+      return true;
+    });
+
+    if (!list.length) {
+      $('#admin-sales-tbody').innerHTML = '<tr><td colspan="10"><div class="admin-empty">Aucune vente ne correspond.</div></td></tr>';
+      return;
+    }
+
+    $('#admin-sales-tbody').innerHTML = list.slice(0, 200).map(s => {
+      const profit = profitOf(s);
+      const thumb = s.image
+        ? `<img src="${esc(s.image)}" class="sale-thumb" alt="" />`
+        : `<div class="sale-thumb-placeholder"><i data-lucide="image"></i></div>`;
+      return `
+        <tr data-sid="${esc(s.id)}">
+          <td>${thumb}</td>
+          <td><strong>${esc(s.name)}</strong></td>
+          <td><div class="user-cell"><div class="user-avatar" style="width:24px;height:24px;font-size:10px">${esc(initials(s.ownerName))}</div><span style="font-size:12.5px">${esc(s.ownerName)}</span></div></td>
+          <td>${esc(s.brand || '—')}</td>
+          <td><span class="sale-condition">${esc(s.condition || '—')}</span></td>
+          <td class="text-right num">${fmtEUR(s.buyPrice)}</td>
+          <td class="text-right num">${fmtEUR(s.sellPrice)}</td>
+          <td class="text-right num ${profit >= 0 ? 'positive' : 'negative'}">${fmtEUR(profit)}</td>
+          <td>${new Date(s.soldAt).toLocaleDateString('fr-FR')}</td>
+          <td class="text-right">
+            <button class="btn-icon" data-admin-edit-sale="${esc(s.id)}" title="Modifier"><i data-lucide="pencil"></i></button>
+            <button class="btn-icon danger" data-admin-delete-sale="${esc(s.id)}" title="Supprimer"><i data-lucide="trash-2"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('') + (list.length > 200 ? `<tr><td colspan="10"><div class="admin-empty">Affichage des 200 premières ventes sur ${list.length}. Affinez les filtres.</div></td></tr>` : '');
+    if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+  }
+
+  $('#admin-sales-search').addEventListener('input', (e) => { adminState.filters.saleSearch = e.target.value; drawAdminSalesTable(); });
+  $('#admin-sales-user').addEventListener('change', (e) => { adminState.filters.saleUser = e.target.value; drawAdminSalesTable(); });
+  $('#admin-sales-brand').addEventListener('change', (e) => { adminState.filters.saleBrand = e.target.value; drawAdminSalesTable(); });
+  $('#admin-sales-condition').addEventListener('change', (e) => { adminState.filters.saleCondition = e.target.value; drawAdminSalesTable(); });
+
+  $('#admin-sales-tbody').addEventListener('click', async (e) => {
+    const editBtn = e.target.closest('[data-admin-edit-sale]');
+    const delBtn = e.target.closest('[data-admin-delete-sale]');
+    if (editBtn) {
+      const id = editBtn.dataset.adminEditSale;
+      const s = adminState.sales.find(x => x.id === id);
+      if (s) openEditSaleModal(s);
     }
     if (delBtn) {
-      const id = delBtn.dataset.adminDelete;
-      const u = store.users.find(x => x.id === id);
-      if (!u) return;
+      const id = delBtn.dataset.adminDeleteSale;
+      const s = adminState.sales.find(x => x.id === id);
+      if (!s) return;
       modal({
-        title: 'Supprimer cet utilisateur ?',
-        body: `<p>L'utilisateur <strong>${esc(u.name)}</strong> et toutes ses ventes seront supprimés définitivement.</p>`,
+        title: 'Supprimer cette vente ?',
+        body: `<p>L'article <strong>${esc(s.name)}</strong> de <strong>${esc(s.ownerName)}</strong> sera supprimé définitivement.</p>`,
         actions: [
           { label: 'Annuler', variant: 'btn-ghost' },
-          {
-            label: 'Supprimer', variant: 'btn-danger', onClick: () => {
-              store.users = store.users.filter(x => x.id !== id);
-              store.sales = store.sales.filter(s => s.userId !== id);
-              saveStore();
-              toast('Utilisateur supprimé.', 'success');
-              renderAdmin();
+          { label: 'Supprimer', variant: 'btn-danger', onClick: async () => {
+              try {
+                if (adminCloud()) await adminCloud().admin.deleteSale(id);
+                else { store.sales = store.sales.filter(x => x.id !== id); saveStore(); }
+                toast('Vente supprimée.', 'success');
+                renderAdminSales();
+              } catch (err) { toast(err.message, 'error'); }
             }
           },
         ],
       });
     }
+  });
+
+  function openEditSaleModal(s) {
+    modal({
+      title: 'Modifier la vente',
+      body: `
+        <label class="field"><span class="field-label">Nom</span><input type="text" id="es-name" value="${esc(s.name)}" /></label>
+        <label class="field"><span class="field-label">Marque</span><input type="text" id="es-brand" value="${esc(s.brand || '')}" /></label>
+        <label class="field"><span class="field-label">État</span>
+          <select id="es-cond">
+            ${['Neuf avec étiquette', 'Neuf sans étiquette', 'Très bon état', 'Bon état', 'Satisfaisant']
+              .map(c => `<option ${c === s.condition ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <label class="field"><span class="field-label">Achat</span><input type="number" step="0.01" id="es-buy" value="${s.buyPrice}" /></label>
+          <label class="field"><span class="field-label">Vente</span><input type="number" step="0.01" id="es-sell" value="${s.sellPrice}" /></label>
+          <label class="field"><span class="field-label">Port</span><input type="number" step="0.01" id="es-ship" value="${s.shipping || 0}" /></label>
+        </div>
+        <label class="field"><span class="field-label">Date</span><input type="date" id="es-date" value="${s.soldAt}" /></label>
+      `,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        {
+          label: 'Enregistrer', variant: 'btn-primary', onClick: async () => {
+            const patch = {
+              name: $('#es-name').value.trim(),
+              brand: $('#es-brand').value.trim(),
+              condition: $('#es-cond').value,
+              buyPrice: Number($('#es-buy').value),
+              sellPrice: Number($('#es-sell').value),
+              shipping: Number($('#es-ship').value),
+              soldAt: $('#es-date').value,
+              image: s.image,
+            };
+            try {
+              if (adminCloud()) await adminCloud().admin.updateSale(s.id, patch);
+              else { Object.assign(s, patch); saveStore(); }
+              toast('Vente mise à jour.', 'success');
+              renderAdminSales();
+            } catch (err) { toast(err.message, 'error'); return false; }
+          },
+        },
+      ],
+    });
+  }
+
+  // ============================================================
+  //  ADMIN — IMAGES
+  // ============================================================
+  async function renderAdminImages() {
+    if (!adminCloud()) {
+      $('#admin-image-gallery').innerHTML = '<div class="admin-empty">Galerie d\'images disponible en mode cloud (Supabase) uniquement.</div>';
+      $('#admin-images-stats span').textContent = '';
+      return;
+    }
+    try {
+      adminState.images = await adminCloud().admin.listAllImages();
+    } catch (err) { toast(err.message, 'error'); adminState.images = []; }
+    drawAdminImageGallery();
+  }
+
+  function drawAdminImageGallery() {
+    const q = adminState.filters.imageSearch.toLowerCase();
+    const usersById = Object.fromEntries(adminState.users.map(u => [u.id, u.name]));
+    const filtered = adminState.images.filter(img => {
+      if (!q) return true;
+      const name = (usersById[img.userId] || '').toLowerCase();
+      return name.includes(q) || img.userId.includes(q);
+    });
+
+    const totalSize = filtered.reduce((s, x) => s + (x.size || 0), 0);
+    $('#admin-images-stats span').textContent = `${filtered.length} image${filtered.length > 1 ? 's' : ''} · ${fmtSize(totalSize)}`;
+
+    $('#admin-images-empty').hidden = filtered.length > 0;
+    if (filtered.length === 0) { $('#admin-image-gallery').innerHTML = ''; return; }
+
+    $('#admin-image-gallery').innerHTML = filtered.map(img => {
+      const ownerName = usersById[img.userId] || img.userId.slice(0, 8);
+      return `
+        <div class="image-tile" data-img-path="${esc(img.path)}">
+          <img src="${esc(img.url)}" alt="" loading="lazy" />
+          <button class="image-tile-delete" data-delete-image="${esc(img.path)}"><i data-lucide="trash-2"></i></button>
+          <div class="image-tile-overlay">
+            <span title="${esc(ownerName)}">${esc(ownerName.slice(0, 12))}${ownerName.length > 12 ? '…' : ''}</span>
+            <span class="image-tile-size">${fmtSize(img.size)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+    if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+  }
+
+  function fmtSize(bytes) {
+    if (!bytes) return '0 Ko';
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
+  }
+
+  $('#admin-images-search').addEventListener('input', (e) => {
+    adminState.filters.imageSearch = e.target.value;
+    drawAdminImageGallery();
+  });
+
+  $('#admin-image-gallery').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('[data-delete-image]');
+    if (!delBtn) {
+      // Clic sur la tuile : ouvrir en grand
+      const tile = e.target.closest('.image-tile');
+      if (tile) {
+        const path = tile.dataset.imgPath;
+        const img = adminState.images.find(i => i.path === path);
+        if (img) {
+          modal({
+            title: 'Image',
+            body: `<img src="${esc(img.url)}" style="max-width:100%;border-radius:12px" />
+                   <p style="margin-top:10px;font-size:12px;color:var(--text-3)">Chemin : <code>${esc(img.path)}</code></p>`,
+            actions: [{ label: 'Fermer', variant: 'btn-ghost' }],
+          });
+        }
+      }
+      return;
+    }
+    e.stopPropagation();
+    const path = delBtn.dataset.deleteImage;
+    modal({
+      title: 'Supprimer cette image ?',
+      body: `<p>L'image sera supprimée définitivement du stockage. Cette action est <strong>irréversible</strong>.</p>`,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        { label: 'Supprimer', variant: 'btn-danger', onClick: async () => {
+            try {
+              await adminCloud().admin.deleteImage(path);
+              toast('Image supprimée.', 'success');
+              renderAdminImages();
+            } catch (err) { toast(err.message, 'error'); }
+          }
+        },
+      ],
+    });
+  });
+
+  // ============================================================
+  //  ADMIN — SQL EDITOR
+  // ============================================================
+  const SQL_TEMPLATES = [
+    { label: 'Top 10 utilisateurs', sql: 'select p.name, p.email, count(s.id) as ventes, sum(s.sell_price) as ca\nfrom profiles p\nleft join sales s on s.user_id = p.id\ngroup by p.id, p.name, p.email\norder by ca desc nulls last\nlimit 10' },
+    { label: 'CA par mois (12m)', sql: "select to_char(sold_at, 'YYYY-MM') as mois, count(*) as ventes,\n       sum(sell_price) as ca,\n       sum(sell_price - buy_price - shipping) as benefice\nfrom sales\nwhere sold_at >= current_date - interval '12 months'\ngroup by mois order by mois" },
+    { label: 'Top marques', sql: 'select brand, count(*) as ventes, sum(sell_price) as ca,\n       round(avg(sell_price - buy_price - shipping)::numeric, 2) as benefice_moyen\nfrom sales\nwhere brand is not null\ngroup by brand\norder by ventes desc\nlimit 20' },
+    { label: 'Ventes récentes', sql: 'select s.name, s.brand, s.sell_price, s.sold_at, p.name as vendeur\nfrom sales s\njoin profiles p on p.id = s.user_id\norder by s.created_at desc\nlimit 30' },
+    { label: 'Utilisateurs inactifs', sql: 'select p.name, p.email, p.created_at\nfrom profiles p\nleft join sales s on s.user_id = p.id\nwhere s.id is null\norder by p.created_at desc' },
+  ];
+
+  function renderAdminSQL() {
+    $('#sql-templates').innerHTML = SQL_TEMPLATES.map((t, i) =>
+      `<button class="sql-template-btn" data-tpl="${i}">${esc(t.label)}</button>`
+    ).join('');
+    if (!$('#sql-input').value.trim()) {
+      $('#sql-input').value = SQL_TEMPLATES[0].sql;
+    }
+  }
+
+  $('#sql-templates').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tpl]');
+    if (!btn) return;
+    $('#sql-input').value = SQL_TEMPLATES[Number(btn.dataset.tpl)].sql;
+  });
+
+  $('#sql-clear-btn').addEventListener('click', () => {
+    $('#sql-input').value = '';
+    $('#sql-info').textContent = '';
+    $('#sql-info').className = 'sql-info';
+    $('#sql-results-card').hidden = true;
+    adminState.sqlLastResult = null;
+  });
+
+  $('#sql-run-btn').addEventListener('click', async () => {
+    const sql = $('#sql-input').value;
+    const info = $('#sql-info');
+    if (!adminCloud()) {
+      info.textContent = 'Disponible en mode cloud uniquement.';
+      info.className = 'sql-info error';
+      return;
+    }
+    info.textContent = 'Exécution...';
+    info.className = 'sql-info';
+    const t0 = performance.now();
+    try {
+      const rows = await adminCloud().admin.runSelect(sql);
+      const elapsed = Math.round(performance.now() - t0);
+      info.textContent = `${rows.length} ligne${rows.length > 1 ? 's' : ''} · ${elapsed} ms`;
+      info.className = 'sql-info success';
+      adminState.sqlLastResult = rows;
+      renderSQLResults(rows);
+    } catch (err) {
+      info.textContent = err.message || 'Erreur SQL';
+      info.className = 'sql-info error';
+      $('#sql-results-card').hidden = true;
+    }
+  });
+
+  function renderSQLResults(rows) {
+    const card = $('#sql-results-card');
+    const table = $('#sql-results-table');
+    if (!rows.length) {
+      card.hidden = false;
+      table.innerHTML = '<thead><tr><th>—</th></tr></thead><tbody><tr><td><div class="admin-empty">0 ligne</div></td></tr></tbody>';
+      return;
+    }
+    const cols = Object.keys(rows[0]);
+    table.innerHTML = `
+      <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${formatSqlCell(r[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+    `;
+    card.hidden = false;
+  }
+
+  function formatSqlCell(v) {
+    if (v === null || v === undefined) return '<em style="color:var(--text-3)">null</em>';
+    if (typeof v === 'object') return esc(JSON.stringify(v));
+    return esc(String(v));
+  }
+
+  $('#sql-export-btn').addEventListener('click', () => {
+    const rows = adminState.sqlLastResult;
+    if (!rows || !rows.length) return;
+    const cols = Object.keys(rows[0]);
+    const csvEscape = (v) => {
+      if (v === null || v === undefined) return '';
+      const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [cols.join(',')]
+      .concat(rows.map(r => cols.map(c => csvEscape(r[c])).join(',')))
+      .join('\n');
+    downloadFile(`sql-export-${todayISO()}.csv`, csv, 'text/csv');
+    toast('Export CSV téléchargé.', 'success');
   });
 
   // ============================================================
