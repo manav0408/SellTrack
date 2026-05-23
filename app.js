@@ -334,6 +334,10 @@
     appShell.hidden = true;
     authShell.hidden = false;
     if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+    // Réafficher le bouton install si le prompt est dispo
+    if (window._sellTrackInstall && window._sellTrackInstall.hasPrompt()) {
+      window._sellTrackInstall.show();
+    }
   };
 
   const showApp = () => {
@@ -343,6 +347,8 @@
     if (!location.hash) location.hash = '#dashboard';
     else handleRoute();
     if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+    // Cacher le bouton install une fois connecté
+    if (window._sellTrackInstall) window._sellTrackInstall.hide();
   };
 
   $$('.auth-tab').forEach(btn => btn.addEventListener('click', () => {
@@ -1485,7 +1491,8 @@
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    showInstallButton();
+    // N'affiche le bouton que si on n'est pas connecté
+    if (!currentUser) showInstallButton();
   });
 
   window.addEventListener('appinstalled', () => {
@@ -1495,6 +1502,8 @@
   });
 
   function showInstallButton() {
+    // Sécurité : pas d'affichage si l'utilisateur est connecté
+    if (currentUser) return;
     if (document.getElementById('install-btn-floating')) return;
     const btn = document.createElement('button');
     btn.id = 'install-btn-floating';
@@ -1515,4 +1524,11 @@
     const btn = document.getElementById('install-btn-floating');
     if (btn) btn.remove();
   }
+
+  // Expose pour pouvoir appeler depuis showApp/showAuth
+  window._sellTrackInstall = {
+    show: showInstallButton,
+    hide: hideInstallButton,
+    hasPrompt: () => !!deferredInstallPrompt,
+  };
 })();
