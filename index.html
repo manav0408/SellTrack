@@ -408,30 +408,231 @@
     </section>
 
     <!-- ADMIN -->
-    <section class="view" data-view="admin" hidden>
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="shield"></i>Administration</h1>
+    <section class="view view-admin" data-view="admin" hidden>
+      <header class="view-header view-header-admin">
+        <h1 class="view-title">
+          <span class="admin-crown"><i data-lucide="shield"></i></span>
+          Administration
+          <span class="admin-pill">Premium</span>
+        </h1>
+        <div class="view-actions">
+          <button class="btn btn-ghost-bordered" id="admin-refresh-btn">
+            <i data-lucide="refresh-cw"></i><span>Actualiser</span>
+          </button>
+        </div>
       </header>
 
-      <div class="kpi-grid" id="admin-kpis"></div>
+      <div class="admin-shell">
+        <!-- Sidebar interne -->
+        <aside class="admin-sidebar" id="admin-sidebar">
+          <button class="admin-tab is-active" data-admin-tab="overview">
+            <i data-lucide="layout-grid"></i><span>Vue d'ensemble</span>
+          </button>
+          <button class="admin-tab" data-admin-tab="users">
+            <i data-lucide="users"></i><span>Utilisateurs</span>
+          </button>
+          <button class="admin-tab" data-admin-tab="sales">
+            <i data-lucide="receipt"></i><span>Toutes les ventes</span>
+          </button>
+          <button class="admin-tab" data-admin-tab="images">
+            <i data-lucide="image"></i><span>Images</span>
+          </button>
+          <button class="admin-tab" data-admin-tab="sql">
+            <i data-lucide="terminal"></i><span>SQL Editor</span>
+          </button>
+        </aside>
 
-      <div class="card">
-        <div class="card-header"><h2 class="card-title">Utilisateurs</h2></div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Utilisateur</th>
-                <th>Email</th>
-                <th>Rôle</th>
-                <th>Ventes</th>
-                <th>Créé le</th>
-                <th>Statut</th>
-                <th class="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="admin-users"></tbody>
-          </table>
+        <!-- Contenu -->
+        <div class="admin-content">
+
+          <!-- ============== OVERVIEW ============== -->
+          <div class="admin-pane is-active" data-admin-pane="overview">
+            <div class="kpi-grid kpi-grid-admin" id="admin-kpis"></div>
+
+            <div class="admin-grid-2col">
+              <div class="card chart-card">
+                <div class="card-header">
+                  <h2 class="card-title">Chiffre d'affaires (12 mois)</h2>
+                </div>
+                <div class="chart-wrap chart-wrap-tall">
+                  <canvas id="admin-chart-revenue"></canvas>
+                </div>
+              </div>
+              <div class="card chart-card">
+                <div class="card-header">
+                  <h2 class="card-title">Inscriptions (12 mois)</h2>
+                </div>
+                <div class="chart-wrap chart-wrap-tall">
+                  <canvas id="admin-chart-signups"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-grid-2col">
+              <div class="card">
+                <div class="card-header"><h2 class="card-title">Top 5 vendeurs</h2></div>
+                <div id="admin-top-sellers" class="top-list"></div>
+              </div>
+              <div class="card">
+                <div class="card-header"><h2 class="card-title">Activité récente</h2></div>
+                <div id="admin-activity" class="activity-list"></div>
+              </div>
+            </div>
+
+            <div class="admin-grid-2col">
+              <div class="card">
+                <div class="card-header"><h2 class="card-title">Top 10 marques</h2></div>
+                <div class="chart-wrap">
+                  <canvas id="admin-chart-brands"></canvas>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header"><h2 class="card-title">Répartition par état</h2></div>
+                <div class="chart-wrap">
+                  <canvas id="admin-chart-conditions"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============== USERS ============== -->
+          <div class="admin-pane" data-admin-pane="users" hidden>
+            <div class="card">
+              <div class="admin-toolbar">
+                <div class="search-input">
+                  <i data-lucide="search"></i>
+                  <input type="search" id="admin-users-search" placeholder="Rechercher un utilisateur..." />
+                </div>
+                <select id="admin-users-role" class="filter-select">
+                  <option value="">Tous les rôles</option>
+                  <option value="admin">Admin</option>
+                  <option value="user">Utilisateur</option>
+                </select>
+                <select id="admin-users-status" class="filter-select">
+                  <option value="">Tous les statuts</option>
+                  <option value="active">Actif</option>
+                  <option value="banned">Suspendu</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table data-table-admin">
+                  <thead>
+                    <tr>
+                      <th>Utilisateur</th>
+                      <th>Email</th>
+                      <th>Rôle</th>
+                      <th class="text-right">Ventes</th>
+                      <th class="text-right">CA</th>
+                      <th class="text-right">Bénéfice</th>
+                      <th>Créé le</th>
+                      <th>Statut</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-users-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============== ALL SALES ============== -->
+          <div class="admin-pane" data-admin-pane="sales" hidden>
+            <div class="card">
+              <div class="admin-toolbar">
+                <div class="search-input">
+                  <i data-lucide="search"></i>
+                  <input type="search" id="admin-sales-search" placeholder="Rechercher une vente..." />
+                </div>
+                <select id="admin-sales-user" class="filter-select">
+                  <option value="">Tous les utilisateurs</option>
+                </select>
+                <select id="admin-sales-brand" class="filter-select">
+                  <option value="">Toutes les marques</option>
+                </select>
+                <select id="admin-sales-condition" class="filter-select">
+                  <option value="">Tous les états</option>
+                  <option>Neuf avec étiquette</option>
+                  <option>Neuf sans étiquette</option>
+                  <option>Très bon état</option>
+                  <option>Bon état</option>
+                  <option>Satisfaisant</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table data-table-admin">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Article</th>
+                      <th>Propriétaire</th>
+                      <th>Marque</th>
+                      <th>État</th>
+                      <th class="text-right">Achat</th>
+                      <th class="text-right">Vente</th>
+                      <th class="text-right">Bénéfice</th>
+                      <th>Date</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-sales-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============== IMAGES ============== -->
+          <div class="admin-pane" data-admin-pane="images" hidden>
+            <div class="card">
+              <div class="admin-toolbar">
+                <div class="search-input">
+                  <i data-lucide="search"></i>
+                  <input type="search" id="admin-images-search" placeholder="Rechercher par utilisateur..." />
+                </div>
+                <div class="admin-images-stats" id="admin-images-stats">
+                  <span></span>
+                </div>
+              </div>
+              <div class="image-gallery" id="admin-image-gallery"></div>
+              <div class="empty-state" id="admin-images-empty" hidden>
+                <i data-lucide="image-off"></i>
+                <h3>Aucune image</h3>
+                <p>Aucune image n'a encore été uploadée par les utilisateurs.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============== SQL EDITOR ============== -->
+          <div class="admin-pane" data-admin-pane="sql" hidden>
+            <div class="card sql-card">
+              <div class="card-header">
+                <h2 class="card-title">SQL Editor <span class="readonly-pill">Lecture seule</span></h2>
+              </div>
+              <div class="sql-templates" id="sql-templates"></div>
+              <textarea id="sql-input" class="sql-input" spellcheck="false"
+                placeholder="-- Tape une requête SELECT...&#10;select * from profiles order by created_at desc limit 10;"></textarea>
+              <div class="sql-actions">
+                <button class="btn btn-primary" id="sql-run-btn">
+                  <i data-lucide="play"></i><span>Exécuter</span>
+                </button>
+                <button class="btn btn-ghost-bordered" id="sql-clear-btn">
+                  <i data-lucide="eraser"></i><span>Effacer</span>
+                </button>
+                <span class="sql-info" id="sql-info"></span>
+              </div>
+            </div>
+            <div class="card" id="sql-results-card" hidden>
+              <div class="card-header">
+                <h2 class="card-title">Résultats</h2>
+                <button class="btn btn-ghost-bordered" id="sql-export-btn">
+                  <i data-lucide="download"></i><span>Exporter CSV</span>
+                </button>
+              </div>
+              <div class="table-wrap sql-results-wrap">
+                <table class="data-table" id="sql-results-table"></table>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
