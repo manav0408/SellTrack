@@ -1449,6 +1449,11 @@
     b.innerHTML = '<i data-lucide="cloud-check"></i><span>Synchronisé</span>';
     document.body.appendChild(b);
     if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+    // Disparaît automatiquement après 3 secondes
+    setTimeout(() => {
+      b.classList.add('is-fading');
+      setTimeout(() => b.remove(), 400);
+    }, 3000);
   }
 
   // ============================================================
