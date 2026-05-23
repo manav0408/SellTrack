@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>SellTrack — Suivi des ventes Vinted</title>
+<meta name="description" content="SellTrack : la plateforme de suivi des ventes et bénéfices pour revendeurs Vinted et e-commerce." />
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#6e56cf" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b0e1a" media="(prefers-color-scheme: dark)" />
+<meta name="application-name" content="SellTrack" />
+<meta name="mobile-web-app-capable" content="yes" />
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="SellTrack" />
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png" />
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png" />
+
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
+<link rel="icon" type="image/png" href="logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="styles.css" />
+<script src="config.js"></script>
+<script src="cloud.js"></script>
+</head>
+<body>
+
+<!-- ===================== AUTH SHELL ===================== -->
+<div id="auth-shell" class="auth-shell" hidden>
+  <div class="auth-bg">
+    <div class="auth-glow auth-glow-1"></div>
+    <div class="auth-glow auth-glow-2"></div>
+  </div>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="logo.png" alt="SellTrack" class="auth-logo" />
+      <div class="auth-brand-text">SellTrack</div>
+    </div>
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab is-active" data-tab="login" role="tab">Connexion</button>
+      <button class="auth-tab" data-tab="signup" role="tab">Créer un compte</button>
+    </div>
+
+    <form id="login-form" class="auth-form" data-form="login">
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input type="email" name="email" required autocomplete="email" placeholder="vous@email.com" />
+      </label>
+      <label class="field">
+        <span class="field-label">Mot de passe</span>
+        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+    </form>
+
+    <form id="signup-form" class="auth-form" data-form="signup" hidden>
+      <label class="field">
+        <span class="field-label">Nom</span>
+        <input type="text" name="name" required placeholder="Votre nom" />
+      </label>
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input type="email" name="email" required autocomplete="email" placeholder="vous@email.com" />
+      </label>
+      <label class="field">
+        <span class="field-label">Mot de passe</span>
+        <input type="password" name="password" required minlength="4" autocomplete="new-password" placeholder="Au moins 4 caractères" />
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Créer mon compte</button>
+      <p class="auth-hint">En créant un compte, vous acceptez les conditions d'utilisation.</p>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== APP SHELL ===================== -->
+<div id="app-shell" class="app-shell" hidden>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="logo.png" alt="" class="sidebar-logo" />
+      <span class="sidebar-brand-text">SellTrack</span>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <a href="#dashboard" class="nav-item" data-route="dashboard">
+        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+      </a>
+      <a href="#sales" class="nav-item" data-route="sales">
+        <i data-lucide="package"></i><span>Articles vendus</span>
+      </a>
+      <a href="#add" class="nav-item" data-route="add">
+        <i data-lucide="plus-circle"></i><span>Ajouter un article</span>
+      </a>
+      <a href="#stats" class="nav-item" data-route="stats">
+        <i data-lucide="bar-chart-3"></i><span>Statistiques</span>
+      </a>
+      <a href="#settings" class="nav-item" data-route="settings">
+        <i data-lucide="settings"></i><span>Paramètres</span>
+      </a>
+      <a href="#admin" class="nav-item nav-item-admin" data-route="admin" id="nav-admin" hidden>
+        <i data-lucide="shield"></i><span>Admin</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user">
+        <div class="sidebar-user-avatar" id="sidebar-user-avatar">?</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-user-name">—</div>
+          <div class="sidebar-user-role" id="sidebar-user-role">—</div>
+        </div>
+      </div>
+      <button class="sidebar-logout" id="logout-btn">
+        <i data-lucide="log-out"></i><span>Déconnexion</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main" id="main">
+    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Ouvrir le menu">
+      <i data-lucide="menu"></i>
+    </button>
+
+    <!-- DASHBOARD -->
+    <section class="view" data-view="dashboard">
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="layout-dashboard"></i>Dashboard</h1>
+        <div class="view-actions">
+          <label class="period-select">
+            <span>Période :</span>
+            <select id="dashboard-period">
+              <option value="7">7 jours</option>
+              <option value="30" selected>30 jours</option>
+              <option value="all">Tout</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <div class="kpi-grid" id="dashboard-kpis"></div>
+
+      <div class="dashboard-grid">
+        <div class="card chart-card">
+          <div class="card-header">
+            <h2 class="card-title">Évolution des ventes et des investissements</h2>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-dashboard"></canvas>
+          </div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-header">
+            <h2 class="card-title">Résumé</h2>
+          </div>
+          <div class="summary-list" id="dashboard-summary"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SALES -->
+    <section class="view" data-view="sales" hidden>
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="package"></i>Articles vendus</h1>
+        <div class="view-actions">
+          <button class="btn btn-primary" data-action="goto-add">
+            <i data-lucide="plus"></i><span>Ajouter un article</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="card">
+        <div class="sales-toolbar">
+          <div class="search-input">
+            <i data-lucide="search"></i>
+            <input type="search" id="sales-search" placeholder="Rechercher un article..." />
+          </div>
+          <select id="sales-brand-filter" class="filter-select">
+            <option value="">Toutes les marques</option>
+          </select>
+          <select id="sales-condition-filter" class="filter-select">
+            <option value="">Tous les états</option>
+            <option>Neuf avec étiquette</option>
+            <option>Neuf sans étiquette</option>
+            <option>Très bon état</option>
+            <option>Bon état</option>
+            <option>Satisfaisant</option>
+          </select>
+          <div class="view-toggle" role="group">
+            <button class="view-toggle-btn is-active" data-layout="list" title="Liste"><i data-lucide="list"></i></button>
+            <button class="view-toggle-btn" data-layout="grid" title="Grille"><i data-lucide="layout-grid"></i></button>
+          </div>
+        </div>
+
+        <div id="sales-list" class="sales-list"></div>
+        <div id="sales-empty" class="empty-state" hidden>
+          <i data-lucide="package-search"></i>
+          <h3>Aucun article pour l'instant</h3>
+          <p>Commencez par ajouter votre premier article vendu pour voir vos statistiques.</p>
+          <button class="btn btn-primary" data-action="goto-add"><i data-lucide="plus"></i>Ajouter un article</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADD -->
+    <section class="view" data-view="add" hidden>
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="plus-circle"></i><span id="add-title">Ajouter un article</span></h1>
+        <div class="view-actions">
+          <button class="btn btn-ghost" data-action="cancel-add"><i data-lucide="x"></i></button>
+        </div>
+      </header>
+
+      <div class="card add-card">
+        <form id="add-form" class="add-grid" autocomplete="off">
+          <input type="hidden" name="id" />
+          <div class="add-col">
+            <div class="field">
+              <span class="field-label">Image de l'article</span>
+              <label class="dropzone" id="dropzone">
+                <input type="file" id="image-input" accept="image/*" hidden />
+                <img id="dropzone-preview" alt="" hidden />
+                <div class="dropzone-placeholder" id="dropzone-placeholder">
+                  <i data-lucide="image"></i>
+                  <span>Cliquez ou glissez une image ici</span>
+                </div>
+              </label>
+            </div>
+            <label class="field">
+              <span class="field-label">Nom de l'article</span>
+              <input type="text" name="name" required placeholder="Ex : Nike Tech Fleece" />
+            </label>
+            <label class="field">
+              <span class="field-label">Marque</span>
+              <input type="text" name="brand" placeholder="Ex : Nike" />
+            </label>
+            <label class="field">
+              <span class="field-label">État</span>
+              <select name="condition" required>
+                <option value="">Sélectionner un état</option>
+                <option>Neuf avec étiquette</option>
+                <option>Neuf sans étiquette</option>
+                <option>Très bon état</option>
+                <option>Bon état</option>
+                <option>Satisfaisant</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Date de vente</span>
+              <input type="date" name="soldAt" required />
+            </label>
+          </div>
+
+          <div class="add-col">
+            <label class="field">
+              <span class="field-label">Prix d'achat</span>
+              <input type="number" name="buyPrice" min="0" step="0.01" required placeholder="0,00 €" />
+            </label>
+            <label class="field">
+              <span class="field-label">Prix de vente</span>
+              <input type="number" name="sellPrice" min="0" step="0.01" required placeholder="0,00 €" />
+            </label>
+            <label class="field">
+              <span class="field-label">Frais de port</span>
+              <input type="number" name="shipping" min="0" step="0.01" placeholder="0,00 €" />
+            </label>
+
+            <div class="profit-box">
+              <span class="profit-label">Bénéfice estimé</span>
+              <span class="profit-value" id="profit-value">0,00 €</span>
+              <span class="profit-note">Calculé automatiquement</span>
+            </div>
+          </div>
+
+          <div class="add-col">
+            <span class="field-label">Prévisualisation</span>
+            <div class="preview-card">
+              <div class="preview-image">
+                <img id="preview-image" alt="" hidden />
+                <div class="preview-placeholder" id="preview-placeholder">
+                  <i data-lucide="image-off"></i>
+                </div>
+              </div>
+              <div class="preview-name" id="preview-name">Nom de l'article</div>
+              <div class="preview-brand" id="preview-brand">—</div>
+              <div class="preview-condition" id="preview-condition" hidden></div>
+              <div class="preview-row"><span>Achat</span><strong id="preview-buy">0,00 €</strong></div>
+              <div class="preview-row"><span>Vente</span><strong id="preview-sell">0,00 €</strong></div>
+              <div class="preview-row"><span>Frais de port</span><strong id="preview-ship">0,00 €</strong></div>
+              <div class="preview-row preview-row-total"><span>Bénéfice</span><strong id="preview-profit">0,00 €</strong></div>
+            </div>
+          </div>
+
+          <div class="add-actions">
+            <button type="button" class="btn btn-ghost" data-action="cancel-add">Annuler</button>
+            <button type="submit" class="btn btn-primary" id="add-submit">Ajouter l'article</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" data-view="stats" hidden>
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="bar-chart-3"></i>Statistiques</h1>
+        <div class="view-actions">
+          <label class="period-select">
+            <span>Période :</span>
+            <select id="stats-period">
+              <option value="7">7 jours</option>
+              <option value="30" selected>30 jours</option>
+              <option value="all">Tout</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <div class="stats-mini-grid" id="stats-mini"></div>
+
+      <div class="card chart-card">
+        <div class="card-header">
+          <h2 class="card-title">Évolution détaillée</h2>
+        </div>
+        <div class="chart-wrap chart-wrap-tall">
+          <canvas id="chart-stats"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">Analyses</h2></div>
+        <div class="analysis-grid" id="stats-analysis"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" data-view="settings" hidden>
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="settings"></i>Paramètres</h1>
+      </header>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Thème</h2>
+        </div>
+        <p class="muted">Choisissez votre thème préféré</p>
+        <div class="theme-toggle" role="radiogroup">
+          <button class="theme-option" data-theme="light" role="radio">
+            <span class="theme-dot theme-dot-light"></span>Clair
+            <i data-lucide="check" class="theme-check"></i>
+          </button>
+          <button class="theme-option" data-theme="dark" role="radio">
+            <span class="theme-dot theme-dot-dark"></span>Sombre
+            <i data-lucide="check" class="theme-check"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">Données</h2></div>
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-blue"><i data-lucide="download"></i></div>
+          <div class="settings-text">
+            <div class="settings-title">Exporter mes données</div>
+            <div class="settings-desc">Télécharger une sauvegarde de toutes vos données</div>
+          </div>
+          <button class="btn btn-ghost-bordered" id="export-btn">Exporter</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-blue"><i data-lucide="upload"></i></div>
+          <div class="settings-text">
+            <div class="settings-title">Importer des données</div>
+            <div class="settings-desc">Importer une sauvegarde existante</div>
+          </div>
+          <input type="file" id="import-input" accept="application/json" hidden />
+          <button class="btn btn-ghost-bordered" id="import-btn">Importer</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-red"><i data-lucide="trash-2"></i></div>
+          <div class="settings-text">
+            <div class="settings-title">Réinitialiser les données</div>
+            <div class="settings-desc">Supprimer toutes vos données (action irréversible)</div>
+          </div>
+          <button class="btn btn-danger" id="reset-btn">Réinitialiser</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">À propos</h2></div>
+        <div class="about-row">
+          <div class="about-logo"><img src="logo.png" alt="" /></div>
+          <div>
+            <div class="about-name">SellTrack</div>
+            <div class="about-version">Version 1.0.0</div>
+            <div class="about-desc">Application de suivi de ventes Vinted</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section class="view" data-view="admin" hidden>
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="shield"></i>Administration</h1>
+      </header>
+
+      <div class="kpi-grid" id="admin-kpis"></div>
+
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">Utilisateurs</h2></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Utilisateur</th>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>Ventes</th>
+                <th>Créé le</th>
+                <th>Statut</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===================== MODAL / TOAST ===================== -->
+<div id="modal-root" class="modal-root" hidden>
+  <div class="modal-overlay" data-close="modal"></div>
+  <div class="modal-window" role="dialog" aria-modal="true">
+    <header class="modal-head">
+      <h3 id="modal-title">Confirmation</h3>
+      <button class="modal-close" data-close="modal" aria-label="Fermer"><i data-lucide="x"></i></button>
+    </header>
+    <div class="modal-body" id="modal-body"></div>
+    <footer class="modal-foot" id="modal-foot"></footer>
+  </div>
+</div>
+
+<div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
