@@ -1015,9 +1015,10 @@
   $('#add-form').addEventListener('input', updatePreview);
 
   // Dropzone
+  // Note : le <label> wrapper déclenche déjà l'input nativement, pas besoin
+  // d'ajouter un click handler (sinon le sélecteur s'ouvre 2x).
   const dropzone = $('#dropzone');
   const imageInput = $('#image-input');
-  dropzone.addEventListener('click', () => imageInput.click());
   imageInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
