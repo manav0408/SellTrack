@@ -1281,6 +1281,11 @@ select { cursor: pointer; }
   z-index: 70;
   pointer-events: none;
   animation: cloudBadgeIn 0.5s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.cloud-badge.is-fading {
+  opacity: 0;
+  transform: translate(-50%, 20px);
 }
 :root[data-theme="dark"] .cloud-badge {
   background: rgba(34, 197, 94, 0.18);
