@@ -207,26 +207,128 @@
         .from('profiles').select('*').order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       // On compte les ventes via une seconde requête (groupé en JS pour rester simple)
-      const { data: allSales, error: e2 } = await supabase.from('sales').select('user_id');
+      const { data: allSales, error: e2 } = await supabase
+        .from('sales').select('user_id, sell_price, buy_price, shipping');
       if (e2) throw new Error(e2.message);
-      const counts = {};
-      allSales.forEach(s => { counts[s.user_id] = (counts[s.user_id] || 0) + 1; });
-      return data.map(p => ({ ...mapProfile(p), salesCount: counts[p.id] || 0 }));
+      const stats = {};
+      (allSales || []).forEach(s => {
+        if (!stats[s.user_id]) stats[s.user_id] = { count: 0, revenue: 0, profit: 0 };
+        stats[s.user_id].count += 1;
+        stats[s.user_id].revenue += Number(s.sell_price);
+        stats[s.user_id].profit += Number(s.sell_price) - Number(s.buy_price) - Number(s.shipping);
+      });
+      return data.map(p => ({
+        ...mapProfile(p),
+        salesCount: stats[p.id]?.count || 0,
+        revenue: stats[p.id]?.revenue || 0,
+        profit: stats[p.id]?.profit || 0,
+      }));
     },
 
     async updateUser(id, patch) {
-      // patch = { role?, status? }
+      // patch = { role?, status?, name?, email? }
       const { error } = await supabase.from('profiles').update(patch).eq('id', id);
       if (error) throw new Error(error.message);
     },
 
     async deleteUser(id) {
-      // Suppression cascade via FK (sales) + ON DELETE CASCADE depuis auth.users
-      // Note : pour supprimer l'utilisateur auth lui-même il faut le service_role
-      // (côté serveur). Côté client on supprime juste le profile + sales.
+      // Suppression complète : ventes + profile (auth.users orphelin à nettoyer manuellement)
       await supabase.from('sales').delete().eq('user_id', id);
       const { error } = await supabase.from('profiles').delete().eq('id', id);
       if (error) throw new Error(error.message);
+    },
+
+    async getUserSales(userId) {
+      const { data, error } = await supabase
+        .from('sales').select('*').eq('user_id', userId).order('sold_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data.map(mapSale);
+    },
+
+    async sendPasswordReset(email) {
+      // Envoie un email de récupération de mot de passe Supabase
+      const redirectUrl = window.location.origin + window.location.pathname;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+      if (error) throw new Error(error.message);
+    },
+
+    // =============== Toutes les ventes (cross-users) ===============
+    async listAllSales() {
+      // Récupère toutes les ventes + le profile owner joint
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*, profiles(id, name, email)')
+        .order('sold_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(s => ({
+        ...mapSale(s),
+        ownerName: s.profiles?.name || '—',
+        ownerEmail: s.profiles?.email || '',
+      }));
+    },
+
+    async updateSale(id, sale) {
+      const { error } = await supabase.from('sales').update(unmapSale(sale)).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+
+    async deleteSale(id) {
+      const { error } = await supabase.from('sales').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+
+    // =============== Storage (images) ===============
+    async listAllImages() {
+      // Liste les fichiers de tous les sous-dossiers (chaque user a son dossier UUID)
+      const { data: folders, error } = await supabase.storage
+        .from('sale-images').list('', { limit: 1000 });
+      if (error) throw new Error(error.message);
+      const userFolders = (folders || []).filter(f => f.id === null); // dossiers
+      const allFiles = [];
+      for (const folder of userFolders) {
+        const { data: files } = await supabase.storage
+          .from('sale-images').list(folder.name, { limit: 1000 });
+        (files || []).forEach(f => {
+          const path = `${folder.name}/${f.name}`;
+          const { data: urlData } = supabase.storage.from('sale-images').getPublicUrl(path);
+          allFiles.push({
+            path,
+            name: f.name,
+            userId: folder.name,
+            size: f.metadata?.size || 0,
+            createdAt: f.created_at,
+            url: urlData.publicUrl,
+          });
+        });
+      }
+      return allFiles.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    },
+
+    async deleteImage(path) {
+      const { error } = await supabase.storage.from('sale-images').remove([path]);
+      if (error) throw new Error(error.message);
+    },
+
+    // =============== SQL Editor (lecture seule SELECT) ===============
+    async runSelect(sql) {
+      // Sécurité côté client : on bloque tout sauf SELECT
+      const cleaned = String(sql || '').trim().replace(/;+\s*$/, '');
+      if (!cleaned) throw new Error('Requête vide.');
+      const upper = cleaned.toUpperCase();
+      if (!upper.startsWith('SELECT') && !upper.startsWith('WITH')) {
+        throw new Error('Seules les requêtes SELECT (ou WITH ... SELECT) sont autorisées.');
+      }
+      const forbidden = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'CREATE', 'GRANT', 'REVOKE'];
+      for (const verb of forbidden) {
+        const re = new RegExp(`\\b${verb}\\b`, 'i');
+        if (re.test(cleaned)) throw new Error(`Verbe SQL interdit détecté : ${verb}.`);
+      }
+      // Appel via la fonction RPC custom "admin_select" (créée dans le schema SQL)
+      const { data, error } = await supabase.rpc('admin_select', { query_text: cleaned });
+      if (error) throw new Error(error.message);
+      return data || [];
     },
   };
 
@@ -234,8 +336,8 @@
   const stats = {
     async global() {
       const [{ data: profiles }, { data: allSales }] = await Promise.all([
-        supabase.from('profiles').select('id, status'),
-        supabase.from('sales').select('sell_price, buy_price, shipping'),
+        supabase.from('profiles').select('id, status, created_at'),
+        supabase.from('sales').select('sell_price, buy_price, shipping, sold_at, brand, condition'),
       ]);
       const totalUsers = profiles?.length || 0;
       const banned = profiles?.filter(p => p.status === 'banned').length || 0;
@@ -244,7 +346,110 @@
       const totalProfit = (allSales || []).reduce(
         (s, x) => s + Number(x.sell_price) - Number(x.buy_price) - Number(x.shipping), 0
       );
-      return { totalUsers, banned, totalSales, totalRevenue, totalProfit };
+      return {
+        totalUsers, banned, totalSales, totalRevenue, totalProfit,
+        profiles: profiles || [],
+        sales: allSales || [],
+      };
+    },
+
+    async signupsByMonth() {
+      // Inscriptions par mois, sur 12 derniers mois
+      const { data } = await supabase.from('profiles').select('created_at');
+      const months = {};
+      const now = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const k = d.toISOString().slice(0, 7);
+        months[k] = 0;
+      }
+      (data || []).forEach(p => {
+        const k = (p.created_at || '').slice(0, 7);
+        if (k in months) months[k] += 1;
+      });
+      return Object.entries(months).map(([key, count]) => ({ key, count }));
+    },
+
+    async revenueByMonth() {
+      const { data } = await supabase.from('sales').select('sell_price, buy_price, shipping, sold_at');
+      const months = {};
+      const now = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const k = d.toISOString().slice(0, 7);
+        months[k] = { revenue: 0, profit: 0 };
+      }
+      (data || []).forEach(s => {
+        const k = (s.sold_at || '').slice(0, 7);
+        if (k in months) {
+          months[k].revenue += Number(s.sell_price);
+          months[k].profit += Number(s.sell_price) - Number(s.buy_price) - Number(s.shipping);
+        }
+      });
+      return Object.entries(months).map(([key, v]) => ({ key, ...v }));
+    },
+
+    async topSellers(limit = 5) {
+      const { data: allSales } = await supabase
+        .from('sales')
+        .select('user_id, sell_price, buy_price, shipping, profiles(name, email)');
+      const by = {};
+      (allSales || []).forEach(s => {
+        const k = s.user_id;
+        if (!by[k]) by[k] = {
+          userId: k,
+          name: s.profiles?.name || '—',
+          email: s.profiles?.email || '',
+          count: 0, revenue: 0, profit: 0,
+        };
+        by[k].count += 1;
+        by[k].revenue += Number(s.sell_price);
+        by[k].profit += Number(s.sell_price) - Number(s.buy_price) - Number(s.shipping);
+      });
+      return Object.values(by).sort((a, b) => b.profit - a.profit).slice(0, limit);
+    },
+
+    async topBrands(limit = 10) {
+      const { data } = await supabase.from('sales').select('brand, sell_price, buy_price, shipping');
+      const by = {};
+      (data || []).forEach(s => {
+        const k = s.brand || 'Sans marque';
+        if (!by[k]) by[k] = { brand: k, count: 0, revenue: 0, profit: 0 };
+        by[k].count += 1;
+        by[k].revenue += Number(s.sell_price);
+        by[k].profit += Number(s.sell_price) - Number(s.buy_price) - Number(s.shipping);
+      });
+      return Object.values(by).sort((a, b) => b.count - a.count).slice(0, limit);
+    },
+
+    async conditionBreakdown() {
+      const { data } = await supabase.from('sales').select('condition');
+      const by = {};
+      (data || []).forEach(s => {
+        const k = s.condition || 'Inconnu';
+        by[k] = (by[k] || 0) + 1;
+      });
+      return Object.entries(by).map(([condition, count]) => ({ condition, count }))
+        .sort((a, b) => b.count - a.count);
+    },
+
+    async recentActivity(limit = 10) {
+      const [{ data: users }, { data: sales }] = await Promise.all([
+        supabase.from('profiles').select('id, name, email, created_at').order('created_at', { ascending: false }).limit(limit),
+        supabase.from('sales')
+          .select('id, name, sell_price, sold_at, created_at, profiles(name)')
+          .order('created_at', { ascending: false }).limit(limit),
+      ]);
+      const activities = [];
+      (users || []).forEach(u => activities.push({
+        type: 'signup', when: u.created_at, label: `${u.name} s'est inscrit`, meta: u.email,
+      }));
+      (sales || []).forEach(s => activities.push({
+        type: 'sale', when: s.created_at,
+        label: `${s.profiles?.name || '?'} a vendu ${s.name}`,
+        meta: `${Number(s.sell_price).toFixed(2)} €`,
+      }));
+      return activities.sort((a, b) => (b.when || '').localeCompare(a.when || '')).slice(0, limit);
     },
   };
 
