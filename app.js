@@ -36,6 +36,15 @@
   const profitOf = (sale) => Number(sale.sellPrice || 0) - Number(sale.buyPrice || 0) - Number(sale.shipping || 0);
   const investmentOf = (sale) => Number(sale.buyPrice || 0) + Number(sale.shipping || 0);
 
+  // Statut d'un article (rétro-compatible : sans status = 'sold')
+  const statusOf = (sale) => sale.status || 'sold';
+  const isSold = (sale) => statusOf(sale) === 'sold';
+  const isListed = (sale) => statusOf(sale) === 'listed';
+  const isStock = (sale) => statusOf(sale) === 'stock';
+  // Seules les ventes réelles comptent dans le CA / les stats
+  const soldSales = (sales) => sales.filter(isSold);
+  const STATUS_LABELS = { stock: 'En stock', listed: 'En vente', sold: 'Vendu' };
+
   const hashPwd = (pwd) => {
     // Lightweight hash for local persistence (NOT production-grade).
     // For production you'd use bcrypt/argon2 server-side.
@@ -488,7 +497,7 @@
   // ============================================================
   //  ROUTING
   // ============================================================
-  const ROUTES = ['dashboard', 'sales', 'add', 'stats', 'settings', 'admin'];
+  const ROUTES = ['dashboard', 'stock', 'sales', 'add', 'stats', 'settings', 'admin'];
 
   const handleRoute = () => {
     if (!currentUser) { showAuth(); return; }
@@ -509,6 +518,7 @@
     backdrop.classList.remove('is-open');
 
     if (route === 'dashboard') renderDashboard();
+    if (route === 'stock') renderStock();
     if (route === 'sales') renderSales();
     if (route === 'add') prepareAddForm();
     if (route === 'stats') renderStats();
@@ -526,9 +536,11 @@
     const t = e.target.closest('[data-action]');
     if (!t) return;
     const a = t.dataset.action;
-    if (a === 'goto-add') { addEditingId = null; location.hash = '#add'; }
+    if (a === 'goto-add') { addEditingId = null; addPresetStatus = null; location.hash = '#add'; }
+    if (a === 'goto-add-stock') { addEditingId = null; addPresetStatus = 'stock'; location.hash = '#add'; }
     if (a === 'cancel-add') {
       addEditingId = null;
+      addPresetStatus = null;
       location.hash = '#sales';
     }
   });
@@ -651,9 +663,10 @@
   // ============================================================
   const renderDashboard = () => {
     const period = $('#dashboard-period').value;
-    const all = userSales();
+    const allRaw = userSales();
+    const all = soldSales(allRaw);  // CA/stats = uniquement les articles vendus
     const { cur, prev } = aggregateCompare(all, period);
-    const lastSale = [...all].sort((a, b) => b.soldAt.localeCompare(a.soldAt))[0];
+    const lastSale = [...all].filter(s => s.soldAt).sort((a, b) => b.soldAt.localeCompare(a.soldAt))[0];
 
     // KPIs
     const kpis = [
@@ -693,6 +706,18 @@
         value: cur.best ? fmtEUR(profitOf(cur.best)) : '—',
         cls: 'kpi-neutral',
         sub: cur.best ? cur.best.name : 'Aucune vente sur la période',
+      },
+      {
+        label: 'Valeur du stock',
+        value: fmtEUR(allRaw.filter(s => isStock(s) || isListed(s)).reduce((sum, s) => sum + Number(s.buyPrice || 0), 0)),
+        cls: 'kpi-blue',
+        sub: `${allRaw.filter(s => isStock(s) || isListed(s)).length} article(s) non vendu(s)`,
+      },
+      {
+        label: 'Bénéfice potentiel',
+        value: fmtEUR(allRaw.filter(isListed).reduce((sum, s) => sum + profitOf(s), 0)),
+        cls: 'kpi-yellow',
+        sub: `Si tout le "en vente" se vend`,
       },
     ];
 
@@ -807,11 +832,14 @@
   $('#dashboard-period').addEventListener('change', renderDashboard);
 
   // ============================================================
-  //  VIEW : SALES
+  //  VIEW : SALES (En vente + Vendus, avec statuts)
   // ============================================================
   let salesLayout = 'list';
+  let salesStatusFilter = 'all'; // 'all' | 'listed' | 'sold'
+
   const renderSales = () => {
-    const all = userSales();
+    // L'onglet Articles n'affiche QUE listed + sold (pas le stock)
+    const all = userSales().filter(s => isListed(s) || isSold(s));
     const searchTerm = ($('#sales-search').value || '').trim().toLowerCase();
     const brandFilter = $('#sales-brand-filter').value;
     const condFilter = $('#sales-condition-filter').value;
@@ -823,11 +851,16 @@
       brands.map(b => `<option ${b === brandFilter ? 'selected' : ''}>${esc(b)}</option>`).join('');
 
     const filtered = all.filter(s => {
+      if (salesStatusFilter !== 'all' && statusOf(s) !== salesStatusFilter) return false;
       if (searchTerm && !s.name.toLowerCase().includes(searchTerm) && !(s.brand || '').toLowerCase().includes(searchTerm)) return false;
       if (brandFilter && s.brand !== brandFilter) return false;
       if (condFilter && s.condition !== condFilter) return false;
       return true;
-    }).sort((a, b) => b.soldAt.localeCompare(a.soldAt));
+    }).sort((a, b) => {
+      const da = a.soldAt || a.listedAt || a.createdAt || '';
+      const db = b.soldAt || b.listedAt || b.createdAt || '';
+      return db.localeCompare(da);
+    });
 
     const list = $('#sales-list');
     const empty = $('#sales-empty');
@@ -841,25 +874,37 @@
     empty.hidden = true;
 
     list.innerHTML = filtered.map(s => {
+      const listed = isListed(s);
       const profit = profitOf(s);
       const profitCls = profit >= 0 ? 'profit' : 'loss';
+      const estCls = listed ? 'estimated' : '';
       const img = s.image
-        ? `<img src="${s.image}" alt="" />`
+        ? `<img src="${esc(s.image)}" alt="" />`
         : `<i data-lucide="image"></i>`;
+      const statusBadge = `<span class="status-badge status-badge-${statusOf(s)}">
+        <span class="status-dot status-dot-${statusOf(s)}"></span>${STATUS_LABELS[statusOf(s)]}</span>`;
+      const sellLabel = listed ? 'Demandé' : 'Vente';
+      const profitLabel = listed ? 'Bénéf. estimé' : 'Bénéfice';
+      // Toggle : en vente → bouton "marquer vendu" ; vendu → bouton "remettre en vente"
+      const toggleBtn = listed
+        ? `<button class="btn-icon" data-mark-sold="${s.id}" title="Marquer comme vendu"><i data-lucide="check-circle-2"></i></button>`
+        : `<button class="btn-icon" data-mark-listed="${s.id}" title="Remettre en vente"><i data-lucide="rotate-ccw"></i></button>`;
+
       if (salesLayout === 'list') {
         return `
-          <div class="sale-item" data-id="${s.id}">
+          <div class="sale-item" data-id="${s.id}" data-open-detail="${s.id}">
             <div class="sale-image">${img}</div>
             <div class="sale-name-block">
               <div class="sale-name">${esc(s.name)}</div>
               <div class="sale-brand">${esc(s.brand || '—')}</div>
-              <span class="sale-condition">${esc(s.condition || '')}</span>
+              <div class="sale-status-badge">${statusBadge}</div>
             </div>
             <div><div class="sale-col-label">Achat</div><div class="sale-col-value">${fmtEUR(s.buyPrice)}</div></div>
-            <div><div class="sale-col-label">Vente</div><div class="sale-col-value">${fmtEUR(s.sellPrice)}</div></div>
+            <div><div class="sale-col-label">${sellLabel}</div><div class="sale-col-value">${fmtEUR(s.sellPrice)}</div></div>
             <div><div class="sale-col-label">Frais de port</div><div class="sale-col-value">${fmtEUR(s.shipping)}</div></div>
-            <div><div class="sale-col-label">Bénéfice</div><div class="sale-col-value ${profitCls}">${fmtEUR(profit)}</div></div>
+            <div><div class="sale-col-label">${profitLabel}</div><div class="sale-col-value ${profitCls} ${estCls}">${fmtEUR(profit)}</div></div>
             <div class="sale-actions">
+              ${toggleBtn}
               <button class="btn-icon" data-edit="${s.id}" title="Modifier"><i data-lucide="pencil"></i></button>
               <button class="btn-icon danger" data-delete="${s.id}" title="Supprimer"><i data-lucide="trash-2"></i></button>
             </div>
@@ -867,18 +912,19 @@
       }
       // Grid
       return `
-        <div class="sale-item" data-id="${s.id}">
+        <div class="sale-item" data-id="${s.id}" data-open-detail="${s.id}">
           <div class="sale-image">${img}</div>
           <div>
             <div class="sale-name">${esc(s.name)}</div>
             <div class="sale-brand">${esc(s.brand || '—')}</div>
-            <span class="sale-condition">${esc(s.condition || '')}</span>
+            <div class="sale-status-badge">${statusBadge}</div>
           </div>
           <div class="sale-col"><span class="sale-col-label">Achat</span><span class="sale-col-value">${fmtEUR(s.buyPrice)}</span></div>
-          <div class="sale-col"><span class="sale-col-label">Vente</span><span class="sale-col-value">${fmtEUR(s.sellPrice)}</span></div>
+          <div class="sale-col"><span class="sale-col-label">${sellLabel}</span><span class="sale-col-value">${fmtEUR(s.sellPrice)}</span></div>
           <div class="sale-col"><span class="sale-col-label">Frais de port</span><span class="sale-col-value">${fmtEUR(s.shipping)}</span></div>
-          <div class="sale-col"><span class="sale-col-label">Bénéfice</span><span class="sale-col-value ${profitCls}">${fmtEUR(profit)}</span></div>
+          <div class="sale-col"><span class="sale-col-label">${profitLabel}</span><span class="sale-col-value ${profitCls} ${estCls}">${fmtEUR(profit)}</span></div>
           <div class="sale-actions">
+            ${toggleBtn}
             <button class="btn-icon" data-edit="${s.id}" title="Modifier"><i data-lucide="pencil"></i></button>
             <button class="btn-icon danger" data-delete="${s.id}" title="Supprimer"><i data-lucide="trash-2"></i></button>
           </div>
@@ -896,16 +942,40 @@
     salesLayout = b.dataset.layout;
     renderSales();
   }));
+  // Onglets de statut
+  $$('#sales-status-tabs .status-tab').forEach(t => t.addEventListener('click', () => {
+    $$('#sales-status-tabs .status-tab').forEach(x => x.classList.toggle('is-active', x === t));
+    salesStatusFilter = t.dataset.statusFilter;
+    renderSales();
+  }));
 
-  // Edit/delete via delegation
+  // Edit/delete/statut/détail via delegation
   $('#sales-list').addEventListener('click', (e) => {
     const editBtn = e.target.closest('[data-edit]');
     const delBtn = e.target.closest('[data-delete]');
+    const markSoldBtn = e.target.closest('[data-mark-sold]');
+    const markListedBtn = e.target.closest('[data-mark-listed]');
+
+    if (markSoldBtn) {
+      e.stopPropagation();
+      const s = store.sales.find(x => x.id === markSoldBtn.dataset.markSold);
+      if (s) openMarkSoldModal(s);
+      return;
+    }
+    if (markListedBtn) {
+      e.stopPropagation();
+      const s = store.sales.find(x => x.id === markListedBtn.dataset.markListed);
+      if (s) markAsListed(s);
+      return;
+    }
     if (editBtn) {
+      e.stopPropagation();
       addEditingId = editBtn.dataset.edit;
       location.hash = '#add';
+      return;
     }
     if (delBtn) {
+      e.stopPropagation();
       const id = delBtn.dataset.delete;
       const sale = store.sales.find(s => s.id === id);
       if (!sale) return;
@@ -929,15 +999,134 @@
           },
         ],
       });
+      return;
+    }
+    // Sinon : clic sur la ligne → ouvrir les détails
+    const row = e.target.closest('[data-open-detail]');
+    if (row) {
+      const s = store.sales.find(x => x.id === row.dataset.openDetail);
+      if (s) openDetailModal(s);
     }
   });
 
+  // ---- Changement de statut ----
+  async function persistSalePatch(sale, patch) {
+    Object.assign(sale, patch);
+    try {
+      if (isCloud()) {
+        await Cloud().sales.update(sale.id, sale);
+      } else {
+        saveStore();
+      }
+    } catch (err) {
+      toast(err.message || 'Mise à jour impossible.', 'error');
+    }
+  }
+
+  function openMarkSoldModal(s) {
+    modal({
+      title: 'Marquer comme vendu',
+      body: `
+        <p style="margin-bottom:12px;color:var(--text-3)">Renseignez le prix de vente réel et la date de vente pour <strong>${esc(s.name)}</strong>.</p>
+        <label class="field"><span class="field-label">Prix de vente réel</span>
+          <input type="number" step="0.01" id="ms-price" value="${s.sellPrice || ''}" placeholder="0,00 €" /></label>
+        <label class="field"><span class="field-label">Date de vente</span>
+          <input type="date" id="ms-date" value="${todayISO()}" /></label>
+      `,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        {
+          label: 'Confirmer la vente', variant: 'btn-primary', onClick: async () => {
+            const price = Number($('#ms-price').value);
+            const date = $('#ms-date').value || todayISO();
+            if (!price || price <= 0) { toast('Indiquez un prix de vente valide.', 'error'); return false; }
+            await persistSalePatch(s, { status: 'sold', sellPrice: price, soldAt: date });
+            toast('Article marqué comme vendu 🎉', 'success');
+            renderSales();
+          },
+        },
+      ],
+    });
+  }
+
+  async function markAsListed(s) {
+    await persistSalePatch(s, { status: 'listed', soldAt: null, listedAt: s.listedAt || todayISO() });
+    toast('Article remis en vente.', 'success');
+    renderSales();
+  }
+
+  // ---- Modale détails article ----
+  function openDetailModal(s) {
+    const listed = isListed(s);
+    const stock = isStock(s);
+    const profit = profitOf(s);
+    const profitCls = profit >= 0 ? 'positive' : 'negative';
+    const img = s.image
+      ? `<img src="${esc(s.image)}" class="detail-modal-img" alt="" />`
+      : '';
+    const sellLabel = listed ? 'Prix demandé' : 'Prix de vente';
+    const dateRow = stock
+      ? (s.boughtAt ? `<div class="detail-row"><span class="detail-row-label">Date d'achat</span><span class="detail-row-value">${new Date(s.boughtAt).toLocaleDateString('fr-FR')}</span></div>` : '')
+      : listed
+        ? (s.listedAt ? `<div class="detail-row"><span class="detail-row-label">Mise en vente</span><span class="detail-row-value">${new Date(s.listedAt).toLocaleDateString('fr-FR')}</span></div>` : '')
+        : (s.soldAt ? `<div class="detail-row"><span class="detail-row-label">Date de vente</span><span class="detail-row-value">${new Date(s.soldAt).toLocaleDateString('fr-FR')}</span></div>` : '');
+
+    const priceRows = stock
+      ? `<div class="detail-row"><span class="detail-row-label">Prix d'achat</span><span class="detail-row-value">${fmtEUR(s.buyPrice)}</span></div>`
+      : `
+        <div class="detail-row"><span class="detail-row-label">Prix d'achat</span><span class="detail-row-value">${fmtEUR(s.buyPrice)}</span></div>
+        <div class="detail-row"><span class="detail-row-label">${sellLabel}</span><span class="detail-row-value">${fmtEUR(s.sellPrice)}</span></div>
+        <div class="detail-row"><span class="detail-row-label">Frais de port</span><span class="detail-row-value">${fmtEUR(s.shipping)}</span></div>
+        <div class="detail-row"><span class="detail-row-label">${listed ? 'Bénéfice estimé' : 'Bénéfice'}</span><span class="detail-row-value ${profitCls}">${fmtEUR(profit)}${listed ? ' ~' : ''}</span></div>
+      `;
+
+    modal({
+      title: s.name,
+      body: `
+        ${img}
+        <div class="detail-rows">
+          <div class="detail-row"><span class="detail-row-label">Statut</span>
+            <span class="detail-row-value"><span class="status-badge status-badge-${statusOf(s)}"><span class="status-dot status-dot-${statusOf(s)}"></span>${STATUS_LABELS[statusOf(s)]}</span></span></div>
+          <div class="detail-row"><span class="detail-row-label">Marque</span><span class="detail-row-value">${esc(s.brand || '—')}</span></div>
+          <div class="detail-row"><span class="detail-row-label">État</span><span class="detail-row-value">${esc(s.condition || '—')}</span></div>
+          ${priceRows}
+          ${dateRow}
+        </div>
+      `,
+      actions: [
+        { label: 'Fermer', variant: 'btn-ghost' },
+        { label: 'Modifier', variant: 'btn-primary', onClick: () => { addEditingId = s.id; location.hash = '#add'; } },
+      ],
+    });
+  }
+
   // ============================================================
-  //  VIEW : ADD / EDIT
+  //  VIEW : ADD / EDIT (formulaire adaptatif par statut)
   // ============================================================
   let addEditingId = null;
   let addImageData = null;
   let addImageFile = null; // File brut, pour upload Supabase
+  let addPresetStatus = null; // statut pré-sélectionné (ex depuis "Ajouter au stock")
+  let addCurrentStatus = 'stock';
+
+  const setAddFormStatus = (status) => {
+    addCurrentStatus = status;
+    $('#add-status').value = status;
+    $$('#status-selector .status-choice').forEach(b =>
+      b.classList.toggle('is-active', b.dataset.status === status));
+    const form = $('#add-form');
+    form.classList.remove('add-form-mode-stock', 'add-form-mode-listed', 'add-form-mode-sold');
+    form.classList.add('add-form-mode-' + status);
+    // Adapter les libellés
+    $('#sell-price-label').textContent = status === 'listed' ? 'Prix demandé' : 'Prix de vente';
+    $('#preview-sell-label').textContent = status === 'listed' ? 'Demandé' : 'Vente';
+    $('#profit-label').textContent = status === 'listed' ? 'Bénéfice estimé' : 'Bénéfice';
+    $('#preview-profit-label').textContent = status === 'listed' ? 'Bénéf. estimé' : 'Bénéfice';
+    updatePreview();
+  };
+
+  $$('#status-selector .status-choice').forEach(b =>
+    b.addEventListener('click', () => setAddFormStatus(b.dataset.status)));
 
   const prepareAddForm = () => {
     const form = $('#add-form');
@@ -956,14 +1145,21 @@
         form.name.value = s.name;
         form.brand.value = s.brand || '';
         form.condition.value = s.condition || '';
-        form.soldAt.value = s.soldAt;
         form.buyPrice.value = s.buyPrice;
-        form.sellPrice.value = s.sellPrice;
+        form.sellPrice.value = s.sellPrice || '';
         form.shipping.value = s.shipping || 0;
+        if (form.soldAt) form.soldAt.value = s.soldAt || '';
+        if (form.listedAt) form.listedAt.value = s.listedAt || '';
+        if (form.boughtAt) form.boughtAt.value = s.boughtAt || '';
         addImageData = s.image || null;
+        setAddFormStatus(statusOf(s));
       }
     } else {
-      form.soldAt.value = todayISO();
+      const initial = addPresetStatus || 'stock';
+      if (form.boughtAt) form.boughtAt.value = todayISO();
+      if (form.listedAt) form.listedAt.value = todayISO();
+      if (form.soldAt) form.soldAt.value = todayISO();
+      setAddFormStatus(initial);
     }
 
     updateDropzone();
@@ -990,9 +1186,11 @@
     const sell = Number(fd.get('sellPrice')) || 0;
     const ship = Number(fd.get('shipping')) || 0;
     const profit = sell - buy - ship;
-    $('#profit-value').textContent = fmtEUR(profit);
-    $('#profit-value').classList.toggle('up', profit > 0);
-    $('#profit-value').classList.toggle('loss', profit < 0);
+    $('#profit-value').textContent = addCurrentStatus === 'stock' ? '—' : fmtEUR(profit);
+    $('#profit-value').classList.toggle('up', profit > 0 && addCurrentStatus !== 'stock');
+    $('#profit-value').classList.toggle('loss', profit < 0 && addCurrentStatus !== 'stock');
+    $('#profit-note').textContent = addCurrentStatus === 'listed' ? 'Estimation si vendu au prix demandé'
+      : addCurrentStatus === 'stock' ? 'Pas encore en vente' : 'Calculé automatiquement';
 
     $('#preview-name').textContent = fd.get('name') || 'Nom de l\'article';
     $('#preview-brand').textContent = fd.get('brand') || '—';
@@ -1050,25 +1248,30 @@
   $('#add-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const status = fd.get('status') || 'stock';
     const payload = {
       name: (fd.get('name') || '').trim(),
       brand: (fd.get('brand') || '').trim(),
       condition: fd.get('condition') || '',
-      soldAt: fd.get('soldAt') || todayISO(),
+      status,
       buyPrice: Number(fd.get('buyPrice')) || 0,
-      sellPrice: Number(fd.get('sellPrice')) || 0,
-      shipping: Number(fd.get('shipping')) || 0,
+      sellPrice: status === 'stock' ? 0 : (Number(fd.get('sellPrice')) || 0),
+      shipping: status === 'stock' ? 0 : (Number(fd.get('shipping')) || 0),
+      soldAt: status === 'sold' ? (fd.get('soldAt') || todayISO()) : null,
+      listedAt: status === 'listed' ? (fd.get('listedAt') || todayISO()) : null,
+      boughtAt: status === 'stock' ? (fd.get('boughtAt') || todayISO()) : null,
       image: addImageData,
     };
     if (!payload.name) { toast('Le nom est requis.', 'error'); return; }
     if (!payload.condition) { toast('Sélectionnez un état.', 'error'); return; }
+    if (status !== 'stock' && (!payload.sellPrice || payload.sellPrice <= 0)) {
+      toast(status === 'listed' ? 'Indiquez le prix demandé.' : 'Indiquez le prix de vente.', 'error'); return;
+    }
 
     const submitBtn = $('#add-submit');
     submitBtn.disabled = true;
 
     try {
-      // En mode cloud, si une nouvelle image a été sélectionnée (File),
-      // on l'upload sur Supabase Storage et on stocke l'URL résultante.
       if (isCloud() && addImageFile) {
         try {
           const url = await Cloud().storage.uploadImage(addImageFile, currentUser.id);
@@ -1103,11 +1306,15 @@
           });
           saveStore();
         }
-        toast('Article ajouté à votre stock.', 'success');
+        toast(status === 'stock' ? 'Article ajouté au stock.'
+          : status === 'listed' ? 'Article mis en vente.' : 'Vente enregistrée.', 'success');
       }
+      const goStatus = status;
       addEditingId = null;
       addImageFile = null;
-      location.hash = '#sales';
+      addPresetStatus = null;
+      // Redirige vers le bon onglet selon le statut
+      location.hash = goStatus === 'stock' ? '#stock' : '#sales';
     } catch (err) {
       toast(err.message || 'Erreur lors de l\'enregistrement.', 'error');
     } finally {
@@ -1120,7 +1327,7 @@
   // ============================================================
   const renderStats = () => {
     const period = $('#stats-period').value;
-    const all = userSales();
+    const all = soldSales(userSales());  // stats = uniquement les ventes réelles
     const inRange = salesInPeriod(all, period);
     const days = period === 'all' ? (() => {
       if (all.length === 0) return 30;
@@ -1228,6 +1435,262 @@
   };
 
   $('#stats-period').addEventListener('change', renderStats);
+
+  // ============================================================
+  //  VIEW : STOCK (bulles draggables avec pan & zoom)
+  // ============================================================
+  const stockView = {
+    scale: 1,
+    tx: 0,
+    ty: 0,
+    dragging: false,
+    startX: 0,
+    startY: 0,
+    startTx: 0,
+    startTy: 0,
+    moved: false,
+    groups: [],
+  };
+
+  // Regroupe les articles "stock" par nom (insensible casse/espaces)
+  function groupStockByName(items) {
+    const map = new Map();
+    items.forEach(s => {
+      const key = (s.name || '').trim().toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, { key, name: s.name, brand: s.brand, image: null, items: [] });
+      }
+      const g = map.get(key);
+      g.items.push(s);
+      if (!g.image && s.image) g.image = s.image;
+      if (!g.brand && s.brand) g.brand = s.brand;
+    });
+    return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length);
+  }
+
+  const renderStock = () => {
+    const stockItems = userSales().filter(isStock);
+    const groups = groupStockByName(stockItems);
+    stockView.groups = groups;
+
+    const canvas = $('#stock-canvas');
+    const empty = $('#stock-empty');
+    const hint = $('#stock-hint');
+
+    // KPIs
+    const totalItems = stockItems.length;
+    const totalValue = stockItems.reduce((sum, s) => sum + Number(s.buyPrice || 0), 0);
+    $('#stock-kpis').innerHTML = `
+      <div class="stock-kpi"><span class="stock-kpi-value">${fmtNum(totalItems)}</span><span class="stock-kpi-label">articles</span></div>
+      <div class="stock-kpi"><span class="stock-kpi-value">${fmtNum(groups.length)}</span><span class="stock-kpi-label">modèles</span></div>
+      <div class="stock-kpi"><span class="stock-kpi-value">${fmtEUR(totalValue)}</span><span class="stock-kpi-label">valeur</span></div>
+    `;
+
+    if (groups.length === 0) {
+      canvas.innerHTML = '';
+      empty.hidden = false;
+      hint.hidden = true;
+      return;
+    }
+    empty.hidden = true;
+    hint.hidden = false;
+
+    const W = $('#stock-canvas-wrap').clientWidth || 900;
+    const H = $('#stock-canvas-wrap').clientHeight || 600;
+    const cx = W / 2;
+    const cy = H / 2;
+
+    const bubbleSize = (qty) => Math.min(150, 84 + qty * 8);
+
+    const positions = [];
+    const ringCapacity = [8, 14, 20];
+    const ringRadius = [230, 380, 530];
+    groups.forEach((g, i) => {
+      let ring = 0, posInRing = i, acc = 0;
+      for (let r = 0; r < ringCapacity.length; r++) {
+        if (i < acc + ringCapacity[r]) { ring = r; posInRing = i - acc; break; }
+        acc += ringCapacity[r];
+        ring = r + 1;
+      }
+      const capacity = ringCapacity[ring] || 20;
+      const radius = ringRadius[ring] || (530 + (ring - 2) * 160);
+      const angle = (posInRing / capacity) * Math.PI * 2 - Math.PI / 2 + (ring * 0.4);
+      const size = bubbleSize(g.items.length);
+      positions.push({
+        x: cx + Math.cos(angle) * radius - size / 2,
+        y: cy + Math.sin(angle) * radius - size / 2,
+        size,
+        cxAbs: cx + Math.cos(angle) * radius,
+        cyAbs: cy + Math.sin(angle) * radius,
+      });
+    });
+
+    const links = positions.map(p =>
+      `<line class="stock-link" x1="${cx}" y1="${cy}" x2="${p.cxAbs}" y2="${p.cyAbs}" />`
+    ).join('');
+
+    const bubbles = groups.map((g, i) => {
+      const p = positions[i];
+      const qty = g.items.length;
+      const img = g.image
+        ? `<img src="${esc(g.image)}" alt="" loading="lazy" />`
+        : `<div class="stock-bubble-placeholder"><i data-lucide="package"></i></div>`;
+      const qtyBadge = qty > 1 ? `<span class="stock-bubble-qty">×${qty}</span>` : '';
+      return `
+        <div class="stock-bubble" data-stock-group="${esc(g.key)}"
+             style="left:${p.x}px; top:${p.y}px; width:${p.size}px; height:${p.size}px;">
+          ${img}
+          ${qtyBadge}
+          <span class="stock-bubble-label">${esc(g.name)}</span>
+        </div>`;
+    }).join('');
+
+    canvas.innerHTML = `
+      <svg class="stock-links" width="${W}" height="${H}">${links}</svg>
+      <div class="stock-hub" style="left:${cx - 75}px; top:${cy - 75}px;">Mon stock</div>
+      ${bubbles}
+    `;
+
+    resetStockView();
+    applyStockTransform();
+    if (window.lucide) lucide.createIcons({ icons: lucide.icons });
+  };
+
+  function applyStockTransform() {
+    const canvas = $('#stock-canvas');
+    if (canvas) canvas.style.transform = `translate(${stockView.tx}px, ${stockView.ty}px) scale(${stockView.scale})`;
+  }
+
+  function resetStockView() {
+    stockView.scale = 1;
+    stockView.tx = 0;
+    stockView.ty = 0;
+    applyStockTransform();
+  }
+
+  const stockWrap = $('#stock-canvas-wrap');
+  if (stockWrap) {
+    const onDown = (clientX, clientY) => {
+      stockView.dragging = true;
+      stockView.moved = false;
+      stockView.startX = clientX;
+      stockView.startY = clientY;
+      stockView.startTx = stockView.tx;
+      stockView.startTy = stockView.ty;
+      stockWrap.classList.add('is-grabbing');
+    };
+    const onMove = (clientX, clientY) => {
+      if (!stockView.dragging) return;
+      const dx = clientX - stockView.startX;
+      const dy = clientY - stockView.startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) stockView.moved = true;
+      stockView.tx = stockView.startTx + dx;
+      stockView.ty = stockView.startTy + dy;
+      applyStockTransform();
+    };
+    const onUp = () => {
+      stockView.dragging = false;
+      stockWrap.classList.remove('is-grabbing');
+    };
+
+    stockWrap.addEventListener('mousedown', (e) => onDown(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', onUp);
+
+    stockWrap.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) onDown(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    stockWrap.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1) onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    stockWrap.addEventListener('touchend', onUp);
+
+    stockWrap.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1.12 : 0.89;
+      const newScale = Math.min(2.5, Math.max(0.4, stockView.scale * delta));
+      const rect = stockWrap.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      stockView.tx = mx - (mx - stockView.tx) * (newScale / stockView.scale);
+      stockView.ty = my - (my - stockView.ty) * (newScale / stockView.scale);
+      stockView.scale = newScale;
+      applyStockTransform();
+    }, { passive: false });
+
+    stockWrap.addEventListener('click', (e) => {
+      if (stockView.moved) return;
+      const bubble = e.target.closest('[data-stock-group]');
+      if (!bubble) return;
+      const key = bubble.dataset.stockGroup;
+      const group = stockView.groups.find(g => g.key === key);
+      if (group) openStockGroupModal(group);
+    });
+  }
+
+  $('#stock-reset-view').addEventListener('click', resetStockView);
+
+  function openStockGroupModal(group) {
+    const qty = group.items.length;
+    const totalBuy = group.items.reduce((s, x) => s + Number(x.buyPrice || 0), 0);
+    const avgBuy = qty > 0 ? totalBuy / qty : 0;
+    const img = group.image
+      ? `<img src="${esc(group.image)}" class="detail-modal-img" alt="" />`
+      : '';
+
+    modal({
+      title: group.name,
+      body: `
+        ${img}
+        <div class="detail-rows">
+          <div class="detail-row"><span class="detail-row-label">Marque</span><span class="detail-row-value">${esc(group.brand || '—')}</span></div>
+          <div class="detail-row"><span class="detail-row-label">En stock</span><span class="detail-row-value">${qty} exemplaire${qty > 1 ? 's' : ''}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Prix d'achat moyen</span><span class="detail-row-value">${fmtEUR(avgBuy)}</span></div>
+          <div class="detail-row"><span class="detail-row-label">Valeur totale</span><span class="detail-row-value">${fmtEUR(totalBuy)}</span></div>
+        </div>
+        <p class="muted" style="margin-top:14px;font-size:12.5px">Mettre en vente agit sur un exemplaire à la fois.</p>
+      `,
+      actions: [
+        { label: 'Fermer', variant: 'btn-ghost' },
+        { label: 'Modifier', variant: 'btn-ghost-bordered', onClick: () => {
+            addEditingId = group.items[0].id; location.hash = '#add';
+          }
+        },
+        { label: 'Mettre en vente', variant: 'btn-primary', onClick: () => {
+            setTimeout(() => openListItemModal(group.items[0]), 50);
+          }
+        },
+      ],
+    });
+  }
+
+  function openListItemModal(s) {
+    modal({
+      title: 'Mettre en vente',
+      body: `
+        <p style="margin-bottom:12px;color:var(--text-3)">Indiquez le prix demandé pour <strong>${esc(s.name)}</strong>.</p>
+        <label class="field"><span class="field-label">Prix demandé</span>
+          <input type="number" step="0.01" id="li-price" placeholder="0,00 €" /></label>
+        <label class="field"><span class="field-label">Frais de port</span>
+          <input type="number" step="0.01" id="li-ship" value="${s.shipping || ''}" placeholder="0,00 €" /></label>
+        <label class="field"><span class="field-label">Date de mise en vente</span>
+          <input type="date" id="li-date" value="${todayISO()}" /></label>
+      `,
+      actions: [
+        { label: 'Annuler', variant: 'btn-ghost' },
+        { label: 'Mettre en vente', variant: 'btn-primary', onClick: async () => {
+            const price = Number($('#li-price').value);
+            const ship = Number($('#li-ship').value) || 0;
+            const date = $('#li-date').value || todayISO();
+            if (!price || price <= 0) { toast('Indiquez un prix demandé valide.', 'error'); return false; }
+            await persistSalePatch(s, { status: 'listed', sellPrice: price, shipping: ship, listedAt: date, soldAt: null });
+            toast('Article mis en vente. Retrouvez-le dans Articles.', 'success');
+            renderStock();
+          }
+        },
+      ],
+    });
+  }
 
   // ============================================================
   //  VIEW : SETTINGS
