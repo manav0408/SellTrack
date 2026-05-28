@@ -133,29 +133,36 @@
       sellPrice: Number(s.sell_price),
       shipping: Number(s.shipping),
       soldAt: s.sold_at,
+      listedAt: s.listed_at,
+      boughtAt: s.bought_at,
+      status: s.status || 'sold',
       image: s.image_url,
       createdAt: s.created_at,
     };
   }
 
   function unmapSale(s) {
-    return {
+    const out = {
       name: s.name,
       brand: s.brand || null,
       condition: s.condition || null,
       buy_price: Number(s.buyPrice) || 0,
       sell_price: Number(s.sellPrice) || 0,
       shipping: Number(s.shipping) || 0,
-      sold_at: s.soldAt,
+      sold_at: s.soldAt || null,
+      listed_at: s.listedAt || null,
+      bought_at: s.boughtAt || null,
+      status: s.status || 'sold',
       image_url: s.image || null,
     };
+    return out;
   }
 
   // =============== Sales ===============
   const sales = {
     async list() {
       const { data, error } = await supabase
-        .from('sales').select('*').order('sold_at', { ascending: false });
+        .from('sales').select('*').order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return data.map(mapSale);
     },
@@ -207,11 +214,13 @@
         .from('profiles').select('*').order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       // On compte les ventes via une seconde requête (groupé en JS pour rester simple)
+      // Seules les ventes réellement "sold" comptent dans CA/bénéfice.
       const { data: allSales, error: e2 } = await supabase
-        .from('sales').select('user_id, sell_price, buy_price, shipping');
+        .from('sales').select('user_id, sell_price, buy_price, shipping, status');
       if (e2) throw new Error(e2.message);
       const stats = {};
       (allSales || []).forEach(s => {
+        if ((s.status || 'sold') !== 'sold') return;
         if (!stats[s.user_id]) stats[s.user_id] = { count: 0, revenue: 0, profit: 0 };
         stats[s.user_id].count += 1;
         stats[s.user_id].revenue += Number(s.sell_price);
@@ -240,7 +249,7 @@
 
     async getUserSales(userId) {
       const { data, error } = await supabase
-        .from('sales').select('*').eq('user_id', userId).order('sold_at', { ascending: false });
+        .from('sales').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return data.map(mapSale);
     },
@@ -260,7 +269,7 @@
       const { data, error } = await supabase
         .from('sales')
         .select('*, profiles(id, name, email)')
-        .order('sold_at', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data || []).map(s => ({
         ...mapSale(s),
@@ -335,21 +344,23 @@
   // =============== Stats globales (admin) ===============
   const stats = {
     async global() {
-      const [{ data: profiles }, { data: allSales }] = await Promise.all([
-        supabase.from('profiles').select('id, status, created_at'),
-        supabase.from('sales').select('sell_price, buy_price, shipping, sold_at, brand, condition'),
+      const [{ data: profiles }, { data: allSalesRaw }] = await Promise.all([
+        supabase.from('profiles').select('id, status, created_at, role'),
+        supabase.from('sales').select('sell_price, buy_price, shipping, sold_at, brand, condition, status'),
       ]);
       const totalUsers = profiles?.length || 0;
       const banned = profiles?.filter(p => p.status === 'banned').length || 0;
-      const totalSales = allSales?.length || 0;
-      const totalRevenue = (allSales || []).reduce((s, x) => s + Number(x.sell_price), 0);
-      const totalProfit = (allSales || []).reduce(
+      // Seules les ventes "sold" comptent dans le CA
+      const sold = (allSalesRaw || []).filter(x => (x.status || 'sold') === 'sold');
+      const totalSales = sold.length;
+      const totalRevenue = sold.reduce((s, x) => s + Number(x.sell_price), 0);
+      const totalProfit = sold.reduce(
         (s, x) => s + Number(x.sell_price) - Number(x.buy_price) - Number(x.shipping), 0
       );
       return {
         totalUsers, banned, totalSales, totalRevenue, totalProfit,
         profiles: profiles || [],
-        sales: allSales || [],
+        sales: sold,
       };
     },
 
@@ -371,7 +382,7 @@
     },
 
     async revenueByMonth() {
-      const { data } = await supabase.from('sales').select('sell_price, buy_price, shipping, sold_at');
+      const { data } = await supabase.from('sales').select('sell_price, buy_price, shipping, sold_at, status').eq('status', 'sold');
       const months = {};
       const now = new Date();
       for (let i = 11; i >= 0; i--) {
@@ -392,7 +403,8 @@
     async topSellers(limit = 5) {
       const { data: allSales } = await supabase
         .from('sales')
-        .select('user_id, sell_price, buy_price, shipping, profiles(name, email)');
+        .select('user_id, sell_price, buy_price, shipping, status, profiles(name, email)')
+        .eq('status', 'sold');
       const by = {};
       (allSales || []).forEach(s => {
         const k = s.user_id;
@@ -410,7 +422,7 @@
     },
 
     async topBrands(limit = 10) {
-      const { data } = await supabase.from('sales').select('brand, sell_price, buy_price, shipping');
+      const { data } = await supabase.from('sales').select('brand, sell_price, buy_price, shipping, status').eq('status', 'sold');
       const by = {};
       (data || []).forEach(s => {
         const k = s.brand || 'Sans marque';
@@ -423,7 +435,7 @@
     },
 
     async conditionBreakdown() {
-      const { data } = await supabase.from('sales').select('condition');
+      const { data } = await supabase.from('sales').select('condition, status').eq('status', 'sold');
       const by = {};
       (data || []).forEach(s => {
         const k = s.condition || 'Inconnu';
