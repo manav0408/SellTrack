@@ -1469,6 +1469,12 @@
   }
 
   const renderStock = () => {
+    // Le layout a besoin que la section soit visible pour avoir les bonnes dimensions.
+    // On diffère d'un frame pour laisser le navigateur recalculer clientWidth/Height.
+    requestAnimationFrame(() => requestAnimationFrame(() => renderStockNow()));
+  };
+
+  const renderStockNow = () => {
     const stockItems = userSales().filter(isStock);
     const groups = groupStockByName(stockItems);
     stockView.groups = groups;
@@ -1476,6 +1482,7 @@
     const canvas = $('#stock-canvas');
     const empty = $('#stock-empty');
     const hint = $('#stock-hint');
+    if (!canvas) return;
 
     // KPIs
     const totalItems = stockItems.length;
@@ -1495,8 +1502,9 @@
     empty.hidden = true;
     hint.hidden = false;
 
-    const W = $('#stock-canvas-wrap').clientWidth || 900;
-    const H = $('#stock-canvas-wrap').clientHeight || 600;
+    const wrap = $('#stock-canvas-wrap');
+    const W = wrap.clientWidth || wrap.offsetWidth || 900;
+    const H = wrap.clientHeight || wrap.offsetHeight || 560;
     const cx = W / 2;
     const cy = H / 2;
 
@@ -2671,7 +2679,7 @@
     const b = document.createElement('div');
     b.id = 'cloud-badge';
     b.className = 'cloud-badge';
-    b.innerHTML = '<i data-lucide="cloud-check"></i><span>Synchronisé</span>';
+    b.innerHTML = '<i data-lucide="cloud"></i><span>Synchronisé</span>';
     document.body.appendChild(b);
     if (window.lucide) lucide.createIcons({ icons: lucide.icons });
     // Disparaît automatiquement après 3 secondes
