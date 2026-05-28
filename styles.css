@@ -1801,12 +1801,13 @@ select { cursor: pointer; }
 .status-choice.is-active[data-status="sold"] { border-color: #22c55e; background: rgba(34,197,94,0.08); }
 
 /* Champs conditionnels : cachés par défaut, affichés selon le statut actif */
-.add-form-mode-stock .field-listed,
-.add-form-mode-stock .field-sold,
-.add-form-mode-listed .field-stock,
-.add-form-mode-listed .field-sold,
-.add-form-mode-sold .field-stock,
-.add-form-mode-sold .field-listed { display: none !important; }
+/* Champs conditionnels : cachés par défaut */
+.field-stock, .field-listed, .field-sold { display: none !important; }
+/* Réaffiche ceux du mode actif. Un champ multi-modes (ex: field-listed field-sold)
+   reste visible tant que l'un de ses modes = mode actif. */
+.add-form-mode-stock .field-stock,
+.add-form-mode-listed .field-listed,
+.add-form-mode-sold .field-sold { display: flex !important; }
 
 /* ============================================================
    SALE ITEM — badge statut + bénéfice estimé
