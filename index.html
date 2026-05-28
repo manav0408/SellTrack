@@ -96,8 +96,11 @@
       <a href="#dashboard" class="nav-item" data-route="dashboard">
         <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
       </a>
+      <a href="#stock" class="nav-item" data-route="stock">
+        <i data-lucide="boxes"></i><span>Mon stock</span>
+      </a>
       <a href="#sales" class="nav-item" data-route="sales">
-        <i data-lucide="package"></i><span>Articles vendus</span>
+        <i data-lucide="package"></i><span>Articles</span>
       </a>
       <a href="#add" class="nav-item" data-route="add">
         <i data-lucide="plus-circle"></i><span>Ajouter un article</span>
@@ -171,7 +174,7 @@
     <!-- SALES -->
     <section class="view" data-view="sales" hidden>
       <header class="view-header">
-        <h1 class="view-title"><i data-lucide="package"></i>Articles vendus</h1>
+        <h1 class="view-title"><i data-lucide="package"></i>Articles</h1>
         <div class="view-actions">
           <button class="btn btn-primary" data-action="goto-add">
             <i data-lucide="plus"></i><span>Ajouter un article</span>
@@ -180,6 +183,16 @@
       </header>
 
       <div class="card">
+        <div class="status-tabs" id="sales-status-tabs">
+          <button class="status-tab is-active" data-status-filter="all">Tous</button>
+          <button class="status-tab" data-status-filter="listed">
+            <span class="status-dot status-dot-listed"></span>En vente
+          </button>
+          <button class="status-tab" data-status-filter="sold">
+            <span class="status-dot status-dot-sold"></span>Vendus
+          </button>
+        </div>
+
         <div class="sales-toolbar">
           <div class="search-input">
             <i data-lucide="search"></i>
@@ -206,7 +219,7 @@
         <div id="sales-empty" class="empty-state" hidden>
           <i data-lucide="package-search"></i>
           <h3>Aucun article pour l'instant</h3>
-          <p>Commencez par ajouter votre premier article vendu pour voir vos statistiques.</p>
+          <p>Mettez un article en vente depuis votre stock, ou ajoutez directement un article vendu.</p>
           <button class="btn btn-primary" data-action="goto-add"><i data-lucide="plus"></i>Ajouter un article</button>
         </div>
       </div>
@@ -224,6 +237,27 @@
       <div class="card add-card">
         <form id="add-form" class="add-grid" autocomplete="off">
           <input type="hidden" name="id" />
+
+          <!-- Sélecteur de statut (pleine largeur) -->
+          <div class="status-selector" id="status-selector">
+            <button type="button" class="status-choice is-active" data-status="stock">
+              <span class="status-dot status-dot-stock"></span>
+              <span class="status-choice-label">En stock</span>
+              <span class="status-choice-desc">Acheté, pas encore en vente</span>
+            </button>
+            <button type="button" class="status-choice" data-status="listed">
+              <span class="status-dot status-dot-listed"></span>
+              <span class="status-choice-label">En vente</span>
+              <span class="status-choice-desc">Annonce en ligne</span>
+            </button>
+            <button type="button" class="status-choice" data-status="sold">
+              <span class="status-dot status-dot-sold"></span>
+              <span class="status-choice-label">Vendu</span>
+              <span class="status-choice-desc">Vendu et encaissé</span>
+            </button>
+          </div>
+          <input type="hidden" name="status" id="add-status" value="stock" />
+
           <div class="add-col">
             <div class="field">
               <span class="field-label">Image de l'article</span>
@@ -255,9 +289,17 @@
                 <option>Satisfaisant</option>
               </select>
             </label>
-            <label class="field">
+            <label class="field field-stock">
+              <span class="field-label">Date d'achat</span>
+              <input type="date" name="boughtAt" />
+            </label>
+            <label class="field field-listed">
+              <span class="field-label">Date de mise en vente</span>
+              <input type="date" name="listedAt" />
+            </label>
+            <label class="field field-sold">
               <span class="field-label">Date de vente</span>
-              <input type="date" name="soldAt" required />
+              <input type="date" name="soldAt" />
             </label>
           </div>
 
@@ -266,19 +308,19 @@
               <span class="field-label">Prix d'achat</span>
               <input type="number" name="buyPrice" min="0" step="0.01" required placeholder="0,00 €" />
             </label>
-            <label class="field">
-              <span class="field-label">Prix de vente</span>
-              <input type="number" name="sellPrice" min="0" step="0.01" required placeholder="0,00 €" />
+            <label class="field field-listed field-sold">
+              <span class="field-label"><span id="sell-price-label">Prix de vente</span></span>
+              <input type="number" name="sellPrice" min="0" step="0.01" placeholder="0,00 €" />
             </label>
-            <label class="field">
+            <label class="field field-listed field-sold">
               <span class="field-label">Frais de port</span>
               <input type="number" name="shipping" min="0" step="0.01" placeholder="0,00 €" />
             </label>
 
             <div class="profit-box">
-              <span class="profit-label">Bénéfice estimé</span>
+              <span class="profit-label" id="profit-label">Bénéfice estimé</span>
               <span class="profit-value" id="profit-value">0,00 €</span>
-              <span class="profit-note">Calculé automatiquement</span>
+              <span class="profit-note" id="profit-note">Calculé automatiquement</span>
             </div>
           </div>
 
@@ -295,9 +337,9 @@
               <div class="preview-brand" id="preview-brand">—</div>
               <div class="preview-condition" id="preview-condition" hidden></div>
               <div class="preview-row"><span>Achat</span><strong id="preview-buy">0,00 €</strong></div>
-              <div class="preview-row"><span>Vente</span><strong id="preview-sell">0,00 €</strong></div>
-              <div class="preview-row"><span>Frais de port</span><strong id="preview-ship">0,00 €</strong></div>
-              <div class="preview-row preview-row-total"><span>Bénéfice</span><strong id="preview-profit">0,00 €</strong></div>
+              <div class="preview-row preview-row-sell field-listed field-sold"><span id="preview-sell-label">Vente</span><strong id="preview-sell">0,00 €</strong></div>
+              <div class="preview-row preview-row-ship field-listed field-sold"><span>Frais de port</span><strong id="preview-ship">0,00 €</strong></div>
+              <div class="preview-row preview-row-total field-listed field-sold"><span id="preview-profit-label">Bénéfice</span><strong id="preview-profit">0,00 €</strong></div>
             </div>
           </div>
 
@@ -339,6 +381,37 @@
       <div class="card">
         <div class="card-header"><h2 class="card-title">Analyses</h2></div>
         <div class="analysis-grid" id="stats-analysis"></div>
+      </div>
+    </section>
+
+    <!-- STOCK (bulles) -->
+    <section class="view view-stock" data-view="stock" hidden>
+      <header class="view-header">
+        <h1 class="view-title"><i data-lucide="boxes"></i>Mon stock</h1>
+        <div class="view-actions">
+          <div class="stock-kpis" id="stock-kpis"></div>
+          <button class="btn btn-ghost-bordered" id="stock-reset-view" title="Recentrer">
+            <i data-lucide="locate-fixed"></i><span>Recentrer</span>
+          </button>
+          <button class="btn btn-primary" data-action="goto-add-stock">
+            <i data-lucide="plus"></i><span>Ajouter au stock</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="stock-canvas-wrap" id="stock-canvas-wrap">
+        <div class="stock-canvas" id="stock-canvas">
+          <!-- les bulles sont injectées ici, transformées par pan/zoom -->
+        </div>
+        <div class="stock-empty" id="stock-empty" hidden>
+          <i data-lucide="package-open"></i>
+          <h3>Votre stock est vide</h3>
+          <p>Ajoutez les articles que vous avez achetés et qui ne sont pas encore en vente.</p>
+          <button class="btn btn-primary" data-action="goto-add-stock"><i data-lucide="plus"></i>Ajouter au stock</button>
+        </div>
+        <div class="stock-hint" id="stock-hint">
+          <i data-lucide="move"></i> Glissez pour vous déplacer · molette pour zoomer
+        </div>
       </div>
     </section>
 
