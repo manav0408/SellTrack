@@ -1,0 +1,45 @@
+-- ============================================================
+-- SellTrack — Migration : statuts d'articles (stock / listed / sold)
+-- ============================================================
+-- À copier-coller dans Supabase > SQL Editor > New query, puis "Run".
+--
+-- Ajoute le cycle de vie des articles :
+--   stock  = acheté, pas encore en vente
+--   listed = en vente (annonce en ligne)
+--   sold   = vendu
+--
+-- Tes ventes existantes deviennent automatiquement "sold" (aucune perte).
+-- ============================================================
+
+-- 1. Colonne status (défaut 'sold' pour ne pas casser l'existant)
+alter table public.sales
+  add column if not exists status text not null default 'sold'
+  check (status in ('stock', 'listed', 'sold'));
+
+-- 2. Date de mise en vente (pour le statut 'listed')
+alter table public.sales
+  add column if not exists listed_at date;
+
+-- 3. Date d'achat (pour le statut 'stock')
+alter table public.sales
+  add column if not exists bought_at date;
+
+-- 4. Index pour filtrer rapidement par statut
+create index if not exists sales_user_status_idx
+  on public.sales(user_id, status);
+
+-- 5. Les colonnes de prix/date de vente doivent être NULL-ables pour les articles
+--    en stock ou en vente (pas encore vendus).
+alter table public.sales alter column sold_at drop not null;
+alter table public.sales alter column sell_price drop not null;
+
+-- 6. Pour les articles déjà en base : on s'assure qu'ils sont bien 'sold'
+update public.sales set status = 'sold' where status is null;
+
+-- ============================================================
+-- Note sur les prix selon le statut :
+--   - stock  : seul buy_price est rempli. sell_price = 0.
+--   - listed : buy_price + sell_price (= prix DEMANDÉ). sold_at non défini.
+--   - sold   : buy_price + sell_price (= prix RÉEL) + sold_at (date réelle).
+-- Aucune contrainte stricte en base pour rester flexible côté app.
+-- ============================================================
