@@ -1315,26 +1315,49 @@
         toast('Article mis à jour.', 'success');
       } else {
         // Quantité : on duplique N fois en mode stock, sinon 1
-        const fd2 = new FormData($('#add-form'));
-        const qty = status === 'stock' ? Math.min(50, Math.max(1, Math.floor(Number(fd2.get('quantity')) || 1))) : 1;
+        let qty = 1;
+        if (status === 'stock') {
+          const qtyEl = $('#add-quantity');
+          const raw = qtyEl ? Number(qtyEl.value) : 1;
+          qty = Math.min(50, Math.max(1, Math.floor(raw) || 1));
+        }
+        let succeeded = 0;
+        let firstError = null;
         for (let i = 0; i < qty; i++) {
-          if (isCloud()) {
-            const created = await Cloud().sales.create(payload);
-            store.sales.push(created);
-          } else {
-            store.sales.push({
-              id: uid(),
-              userId: currentUser.id,
-              createdAt: new Date().toISOString(),
-              ...payload,
-            });
+          try {
+            if (isCloud()) {
+              const created = await Cloud().sales.create(payload);
+              store.sales.push(created);
+            } else {
+              store.sales.push({
+                id: uid(),
+                userId: currentUser.id,
+                createdAt: new Date().toISOString(),
+                ...payload,
+              });
+            }
+            succeeded++;
+          } catch (err) {
+            console.error(`[SellTrack] Insertion ${i + 1}/${qty} échouée:`, err);
+            if (!firstError) firstError = err;
           }
         }
         if (!isCloud()) saveStore();
-        const msg = status === 'stock'
-          ? (qty === 1 ? 'Article ajouté au stock.' : `${qty} exemplaires ajoutés au stock.`)
-          : status === 'listed' ? 'Article mis en vente.' : 'Vente enregistrée.';
-        toast(msg, 'success');
+        if (succeeded === 0) {
+          toast(`Erreur : ${firstError?.message || 'Aucun article enregistré.'}`, 'error');
+          return; // ne redirige pas
+        }
+        let msg;
+        if (status === 'stock') {
+          if (succeeded === qty) {
+            msg = succeeded === 1 ? 'Article ajouté au stock.' : `${succeeded} exemplaires ajoutés au stock.`;
+          } else {
+            msg = `${succeeded}/${qty} exemplaires ajoutés (${qty - succeeded} échec${qty - succeeded > 1 ? 's' : ''}).`;
+          }
+        } else {
+          msg = status === 'listed' ? 'Article mis en vente.' : 'Vente enregistrée.';
+        }
+        toast(msg, succeeded === qty ? 'success' : 'error');
       }
       const goStatus = status;
       addEditingId = null;
@@ -1632,14 +1655,73 @@
     window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
     window.addEventListener('mouseup', onUp);
 
-    stockWrap.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) onDown(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-    stockWrap.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 1) onMove(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-    stockWrap.addEventListener('touchend', onUp);
+    // ========== TACTILE : pan (1 doigt) + pinch zoom (2 doigts) ==========
+    let pinchStartDist = 0;
+    let pinchStartScale = 1;
+    let pinchCenterX = 0;
+    let pinchCenterY = 0;
+    let pinchStartTx = 0;
+    let pinchStartTy = 0;
+    let isPinching = false;
 
+    const touchDistance = (t1, t2) => {
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      return Math.hypot(dx, dy);
+    };
+
+    stockWrap.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        // Début du pinch
+        isPinching = true;
+        stockView.dragging = false; // annule un éventuel pan en cours
+        const rect = stockWrap.getBoundingClientRect();
+        pinchStartDist = touchDistance(e.touches[0], e.touches[1]);
+        pinchStartScale = stockView.scale;
+        pinchCenterX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+        pinchCenterY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+        pinchStartTx = stockView.tx;
+        pinchStartTy = stockView.ty;
+      } else if (e.touches.length === 1 && !isPinching) {
+        onDown(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    stockWrap.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && isPinching) {
+        // Pinch en cours
+        if (e.cancelable) e.preventDefault();
+        const dist = touchDistance(e.touches[0], e.touches[1]);
+        const ratio = dist / (pinchStartDist || 1);
+        const newScale = Math.min(2.5, Math.max(0.4, pinchStartScale * ratio));
+        // Zoom centré sur le point pincé
+        const scaleChange = newScale / pinchStartScale;
+        stockView.tx = pinchCenterX - (pinchCenterX - pinchStartTx) * scaleChange;
+        stockView.ty = pinchCenterY - (pinchCenterY - pinchStartTy) * scaleChange;
+        stockView.scale = newScale;
+        applyStockTransform();
+      } else if (e.touches.length === 1 && !isPinching) {
+        onMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+
+    stockWrap.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0) {
+        isPinching = false;
+        onUp();
+      } else if (e.touches.length < 2) {
+        // On passe de 2 à 1 doigt : on arrête le pinch sans déclencher un nouveau pan
+        isPinching = false;
+        stockView.dragging = false;
+      }
+    });
+
+    stockWrap.addEventListener('touchcancel', () => {
+      isPinching = false;
+      onUp();
+    });
+
+    // ========== MOLETTE (PC) ==========
     stockWrap.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 1.12 : 0.89;
@@ -1653,8 +1735,24 @@
       applyStockTransform();
     }, { passive: false });
 
+    // ========== Helper pour zoomer au centre (boutons +/-) ==========
+    function zoomCentered(delta) {
+      const newScale = Math.min(2.5, Math.max(0.4, stockView.scale * delta));
+      const rect = stockWrap.getBoundingClientRect();
+      const mx = rect.width / 2;
+      const my = rect.height / 2;
+      stockView.tx = mx - (mx - stockView.tx) * (newScale / stockView.scale);
+      stockView.ty = my - (my - stockView.ty) * (newScale / stockView.scale);
+      stockView.scale = newScale;
+      applyStockTransform();
+    }
+    const zoomInBtn = $('#stock-zoom-in');
+    const zoomOutBtn = $('#stock-zoom-out');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', (e) => { e.stopPropagation(); zoomCentered(1.25); });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', (e) => { e.stopPropagation(); zoomCentered(0.8); });
+
     stockWrap.addEventListener('click', (e) => {
-      if (stockView.moved) return;
+      if (stockView.moved || isPinching) return;
       const bubble = e.target.closest('[data-stock-group]');
       if (!bubble) return;
       const key = bubble.dataset.stockGroup;
