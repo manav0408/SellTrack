@@ -412,6 +412,10 @@
         <div class="stock-canvas" id="stock-canvas">
           <!-- les bulles sont injectées ici, transformées par pan/zoom -->
         </div>
+        <div class="stock-zoom-controls">
+          <button class="stock-zoom-btn" id="stock-zoom-in" aria-label="Zoomer"><i data-lucide="plus"></i></button>
+          <button class="stock-zoom-btn" id="stock-zoom-out" aria-label="Dézoomer"><i data-lucide="minus"></i></button>
+        </div>
         <div class="stock-empty" id="stock-empty" hidden>
           <i data-lucide="package-open"></i>
           <h3>Votre stock est vide</h3>
@@ -419,7 +423,7 @@
           <button class="btn btn-primary" data-action="goto-add-stock"><i data-lucide="plus"></i>Ajouter au stock</button>
         </div>
         <div class="stock-hint" id="stock-hint">
-          <i data-lucide="move"></i> Glissez pour vous déplacer · molette pour zoomer
+          <i data-lucide="move"></i> Glissez pour vous déplacer · molette/pinch pour zoomer
         </div>
       </div>
     </section>
