@@ -1,745 +1,2128 @@
-<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>SellTrack — Suivi des ventes Vinted</title>
-<meta name="description" content="SellTrack : la plateforme de suivi des ventes et bénéfices pour revendeurs Vinted et e-commerce." />
+/* ============================================================
+   SellTrack — feuille de styles
+   Design : sidebar dark + zone principale claire, accents violet,
+   pastels doux sur les KPIs, chart vert / rouge.
+   ============================================================ */
 
-<!-- PWA -->
-<link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#6e56cf" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#0b0e1a" media="(prefers-color-scheme: dark)" />
-<meta name="application-name" content="SellTrack" />
-<meta name="mobile-web-app-capable" content="yes" />
+:root {
+  --font-display: "Plus Jakarta Sans", "Manrope", system-ui, sans-serif;
+  --font-body: "Manrope", system-ui, sans-serif;
 
-<!-- iOS PWA -->
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="SellTrack" />
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
-<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png" />
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png" />
+  /* Sidebar */
+  --side-bg: #0b0e1a;
+  --side-bg-2: #0e1224;
+  --side-border: #1a1f33;
+  --side-text: #c7cad9;
+  --side-text-dim: #7a8099;
+  --side-active: #ffffff;
+  --side-active-bg: #6e56cf;
+  --side-active-bg-2: #7c5cff;
+  --side-hover-bg: rgba(255, 255, 255, 0.05);
 
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
-<link rel="icon" type="image/png" href="logo.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css" />
-<script src="config.js"></script>
-<script src="cloud.js"></script>
-</head>
-<body>
+  /* Surface (light theme) */
+  --bg: #f4f5fa;
+  --bg-2: #eef0f7;
+  --card: #ffffff;
+  --card-soft: #fafbff;
+  --border: #e6e8f0;
+  --border-soft: #eef0f7;
+  --text: #0f1322;
+  --text-2: #4a5070;
+  --text-3: #828aa4;
+  --text-muted: #9aa1b8;
 
-<!-- ===================== AUTH SHELL ===================== -->
-<div id="auth-shell" class="auth-shell" hidden>
-  <div class="auth-bg">
-    <div class="auth-glow auth-glow-1"></div>
-    <div class="auth-glow auth-glow-2"></div>
-  </div>
-  <div class="auth-card">
-    <div class="auth-brand">
-      <img src="logo.png" alt="SellTrack" class="auth-logo" />
-      <div class="auth-brand-text">SellTrack</div>
-    </div>
-    <div class="auth-tabs" role="tablist">
-      <button class="auth-tab is-active" data-tab="login" role="tab">Connexion</button>
-      <button class="auth-tab" data-tab="signup" role="tab">Créer un compte</button>
-    </div>
+  --primary: #6e56cf;
+  --primary-2: #7c5cff;
+  --primary-soft: #ede8ff;
+  --primary-soft-2: #f3effc;
 
-    <form id="login-form" class="auth-form" data-form="login">
-      <label class="field">
-        <span class="field-label">Email</span>
-        <input type="email" name="email" required autocomplete="email" placeholder="vous@email.com" />
-      </label>
-      <label class="field">
-        <span class="field-label">Mot de passe</span>
-        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••" />
-      </label>
-      <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
-    </form>
+  /* KPI pastels */
+  --p-green-bg: #e7f7eb;
+  --p-green-fg: #166534;
+  --p-green-line: #22c55e;
 
-    <form id="signup-form" class="auth-form" data-form="signup" hidden>
-      <label class="field">
-        <span class="field-label">Nom</span>
-        <input type="text" name="name" required placeholder="Votre nom" />
-      </label>
-      <label class="field">
-        <span class="field-label">Email</span>
-        <input type="email" name="email" required autocomplete="email" placeholder="vous@email.com" />
-      </label>
-      <label class="field">
-        <span class="field-label">Mot de passe</span>
-        <input type="password" name="password" required minlength="4" autocomplete="new-password" placeholder="Au moins 4 caractères" />
-      </label>
-      <button type="submit" class="btn btn-primary btn-block">Créer mon compte</button>
-      <p class="auth-hint">En créant un compte, vous acceptez les conditions d'utilisation.</p>
-    </form>
-  </div>
-</div>
+  --p-red-bg: #fde4e4;
+  --p-red-fg: #991b1b;
+  --p-red-line: #ef4444;
 
-<!-- ===================== APP SHELL ===================== -->
-<div id="app-shell" class="app-shell" hidden>
+  --p-violet-bg: #ece5fb;
+  --p-violet-fg: #5b21b6;
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <img src="logo.png" alt="" class="sidebar-logo" />
-      <span class="sidebar-brand-text">SellTrack</span>
-    </div>
-    <nav class="sidebar-nav" id="sidebar-nav">
-      <a href="#dashboard" class="nav-item" data-route="dashboard">
-        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
-      </a>
-      <a href="#stock" class="nav-item" data-route="stock">
-        <i data-lucide="boxes"></i><span>Mon stock</span>
-      </a>
-      <a href="#sales" class="nav-item" data-route="sales">
-        <i data-lucide="package"></i><span>Articles</span>
-      </a>
-      <a href="#add" class="nav-item" data-route="add">
-        <i data-lucide="plus-circle"></i><span>Ajouter un article</span>
-      </a>
-      <a href="#stats" class="nav-item" data-route="stats">
-        <i data-lucide="bar-chart-3"></i><span>Statistiques</span>
-      </a>
-      <a href="#settings" class="nav-item" data-route="settings">
-        <i data-lucide="settings"></i><span>Paramètres</span>
-      </a>
-      <a href="#admin" class="nav-item nav-item-admin" data-route="admin" id="nav-admin" hidden>
-        <i data-lucide="shield"></i><span>Admin</span>
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="sidebar-user" id="sidebar-user">
-        <div class="sidebar-user-avatar" id="sidebar-user-avatar">?</div>
-        <div class="sidebar-user-info">
-          <div class="sidebar-user-name" id="sidebar-user-name">—</div>
-          <div class="sidebar-user-role" id="sidebar-user-role">—</div>
-        </div>
-      </div>
-      <button class="sidebar-logout" id="logout-btn">
-        <i data-lucide="log-out"></i><span>Déconnexion</span>
-      </button>
-    </div>
-  </aside>
+  --p-yellow-bg: #fef3c7;
+  --p-yellow-fg: #92400e;
 
-  <!-- MAIN -->
-  <main class="main" id="main">
-    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Ouvrir le menu">
-      <i data-lucide="menu"></i>
-    </button>
+  --p-blue-bg: #e0e7ff;
+  --p-blue-fg: #3730a3;
 
-    <!-- DASHBOARD -->
-    <section class="view" data-view="dashboard">
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="layout-dashboard"></i>Dashboard</h1>
-        <div class="view-actions">
-          <label class="period-select">
-            <span>Période :</span>
-            <select id="dashboard-period">
-              <option value="7">7 jours</option>
-              <option value="30" selected>30 jours</option>
-              <option value="all">Tout</option>
-            </select>
-          </label>
-        </div>
-      </header>
+  --p-neutral-bg: #f5f6fb;
+  --p-neutral-fg: #475569;
 
-      <div class="kpi-grid" id="dashboard-kpis"></div>
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
 
-      <div class="dashboard-grid">
-        <div class="card chart-card">
-          <div class="card-header">
-            <h2 class="card-title">Évolution des ventes et des investissements</h2>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chart-dashboard"></canvas>
-          </div>
-        </div>
-        <div class="card summary-card">
-          <div class="card-header">
-            <h2 class="card-title">Résumé</h2>
-          </div>
-          <div class="summary-list" id="dashboard-summary"></div>
-        </div>
-      </div>
-    </section>
+  --shadow-sm: 0 1px 2px rgba(15, 19, 34, 0.04);
+  --shadow: 0 8px 24px rgba(15, 19, 34, 0.06);
+  --shadow-lg: 0 16px 40px rgba(15, 19, 34, 0.10);
 
-    <!-- SALES -->
-    <section class="view" data-view="sales" hidden>
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="package"></i>Articles</h1>
-        <div class="view-actions">
-          <button class="btn btn-primary" data-action="goto-add">
-            <i data-lucide="plus"></i><span>Ajouter un article</span>
-          </button>
-        </div>
-      </header>
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
 
-      <div class="card">
-        <div class="status-tabs" id="sales-status-tabs">
-          <button class="status-tab is-active" data-status-filter="all">Tous</button>
-          <button class="status-tab" data-status-filter="listed">
-            <span class="status-dot status-dot-listed"></span>En vente
-          </button>
-          <button class="status-tab" data-status-filter="sold">
-            <span class="status-dot status-dot-sold"></span>Vendus
-          </button>
-        </div>
+  --t-fast: 120ms ease;
+  --t: 180ms ease;
+}
 
-        <div class="sales-toolbar">
-          <div class="search-input">
-            <i data-lucide="search"></i>
-            <input type="search" id="sales-search" placeholder="Rechercher un article..." />
-          </div>
-          <select id="sales-brand-filter" class="filter-select">
-            <option value="">Toutes les marques</option>
-          </select>
-          <select id="sales-condition-filter" class="filter-select">
-            <option value="">Tous les états</option>
-            <option>Neuf avec étiquette</option>
-            <option>Neuf sans étiquette</option>
-            <option>Très bon état</option>
-            <option>Bon état</option>
-            <option>Satisfaisant</option>
-          </select>
-          <div class="view-toggle" role="group">
-            <button class="view-toggle-btn is-active" data-layout="list" title="Liste"><i data-lucide="list"></i></button>
-            <button class="view-toggle-btn" data-layout="grid" title="Grille"><i data-lucide="layout-grid"></i></button>
-          </div>
-        </div>
+/* Dark theme */
+:root[data-theme="dark"] {
+  --bg: #0b0e1a;
+  --bg-2: #0a0d18;
+  --card: #11152a;
+  --card-soft: #0e1224;
+  --border: #1d2340;
+  --border-soft: #181d35;
+  --text: #eef0f7;
+  --text-2: #b6bcd4;
+  --text-3: #8a92ad;
+  --text-muted: #6c739a;
 
-        <div id="sales-list" class="sales-list"></div>
-        <div id="sales-empty" class="empty-state" hidden>
-          <i data-lucide="package-search"></i>
-          <h3>Aucun article pour l'instant</h3>
-          <p>Mettez un article en vente depuis votre stock, ou ajoutez directement un article vendu.</p>
-          <button class="btn btn-primary" data-action="goto-add"><i data-lucide="plus"></i>Ajouter un article</button>
-        </div>
-      </div>
-    </section>
+  --p-green-bg: rgba(34, 197, 94, 0.14);
+  --p-green-fg: #86efac;
+  --p-red-bg: rgba(239, 68, 68, 0.14);
+  --p-red-fg: #fca5a5;
+  --p-violet-bg: rgba(124, 92, 255, 0.16);
+  --p-violet-fg: #c4b5fd;
+  --p-yellow-bg: rgba(234, 179, 8, 0.14);
+  --p-yellow-fg: #fcd34d;
+  --p-blue-bg: rgba(99, 102, 241, 0.16);
+  --p-blue-fg: #a5b4fc;
+  --p-neutral-bg: rgba(255, 255, 255, 0.04);
+  --p-neutral-fg: #cbd5e1;
 
-    <!-- ADD -->
-    <section class="view" data-view="add" hidden>
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="plus-circle"></i><span id="add-title">Ajouter un article</span></h1>
-        <div class="view-actions">
-          <button class="btn btn-ghost" data-action="cancel-add"><i data-lucide="x"></i></button>
-        </div>
-      </header>
+  --primary-soft: rgba(124, 92, 255, 0.16);
+  --primary-soft-2: rgba(124, 92, 255, 0.10);
 
-      <div class="card add-card">
-        <form id="add-form" class="add-grid" autocomplete="off">
-          <input type="hidden" name="id" />
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
 
-          <!-- Sélecteur de statut (pleine largeur) -->
-          <div class="status-selector" id="status-selector">
-            <button type="button" class="status-choice is-active" data-status="stock">
-              <span class="status-dot status-dot-stock"></span>
-              <span class="status-choice-label">En stock</span>
-              <span class="status-choice-desc">Acheté, pas encore en vente</span>
-            </button>
-            <button type="button" class="status-choice" data-status="listed">
-              <span class="status-dot status-dot-listed"></span>
-              <span class="status-choice-label">En vente</span>
-              <span class="status-choice-desc">Annonce en ligne</span>
-            </button>
-            <button type="button" class="status-choice" data-status="sold">
-              <span class="status-dot status-dot-sold"></span>
-              <span class="status-choice-label">Vendu</span>
-              <span class="status-choice-desc">Vendu et encaissé</span>
-            </button>
-          </div>
-          <input type="hidden" name="status" id="add-status" value="stock" />
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+[hidden] { display: none !important; }
 
-          <div class="add-col">
-            <div class="field">
-              <span class="field-label">Image de l'article</span>
-              <label class="dropzone" id="dropzone">
-                <input type="file" id="image-input" accept="image/*" hidden />
-                <img id="dropzone-preview" alt="" hidden />
-                <div class="dropzone-placeholder" id="dropzone-placeholder">
-                  <i data-lucide="image"></i>
-                  <span>Cliquez ou glissez une image ici</span>
-                </div>
-              </label>
-            </div>
-            <label class="field">
-              <span class="field-label">Nom de l'article</span>
-              <input type="text" name="name" required placeholder="Ex : Nike Tech Fleece" />
-            </label>
-            <label class="field">
-              <span class="field-label">Marque</span>
-              <input type="text" name="brand" placeholder="Ex : Nike" />
-            </label>
-            <label class="field">
-              <span class="field-label">État</span>
-              <select name="condition" required>
-                <option value="">Sélectionner un état</option>
-                <option>Neuf avec étiquette</option>
-                <option>Neuf sans étiquette</option>
-                <option>Très bon état</option>
-                <option>Bon état</option>
-                <option>Satisfaisant</option>
-              </select>
-            </label>
-            <label class="field field-stock">
-              <span class="field-label">Date d'achat</span>
-              <input type="date" name="boughtAt" />
-            </label>
-            <label class="field field-listed">
-              <span class="field-label">Date de mise en vente</span>
-              <input type="date" name="listedAt" />
-            </label>
-            <label class="field field-sold">
-              <span class="field-label">Date de vente</span>
-              <input type="date" name="soldAt" />
-            </label>
-          </div>
+/* ============================================================
+   AUTH
+   ============================================================ */
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  position: relative;
+  padding: 24px;
+  background:
+    radial-gradient(60% 60% at 20% 10%, #1a1340 0%, transparent 60%),
+    radial-gradient(50% 50% at 90% 30%, #2a1166 0%, transparent 60%),
+    linear-gradient(180deg, #0a0b1e 0%, #06070f 100%);
+  overflow: hidden;
+}
+.auth-bg { position: absolute; inset: 0; pointer-events: none; }
+.auth-glow {
+  position: absolute;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.5;
+}
+.auth-glow-1 { top: -200px; left: -120px; background: #5b2bd6; }
+.auth-glow-2 { bottom: -240px; right: -120px; background: #2657ff; }
 
-          <div class="add-col">
-            <label class="field">
-              <span class="field-label">Prix d'achat</span>
-              <input type="number" name="buyPrice" min="0" step="0.01" required placeholder="0,00 €" />
-            </label>
-            <label class="field field-stock">
-              <span class="field-label">Quantité</span>
-              <div class="qty-stepper">
-                <button type="button" class="qty-btn" data-qty-step="-1" aria-label="Diminuer">−</button>
-                <input type="number" name="quantity" id="add-quantity" min="1" max="50" step="1" value="1" />
-                <button type="button" class="qty-btn" data-qty-step="1" aria-label="Augmenter">+</button>
-              </div>
-              <span class="field-hint" id="qty-hint">1 exemplaire ajouté au stock</span>
-            </label>
-            <label class="field field-listed field-sold">
-              <span class="field-label"><span id="sell-price-label">Prix de vente</span></span>
-              <input type="number" name="sellPrice" min="0" step="0.01" placeholder="0,00 €" />
-            </label>
-            <label class="field field-listed field-sold">
-              <span class="field-label">Frais de port</span>
-              <input type="number" name="shipping" min="0" step="0.01" placeholder="0,00 €" />
-            </label>
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+.auth-brand {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 24px;
+}
+.auth-logo {
+  width: 44px; height: 44px; object-fit: contain;
+  border-radius: 12px;
+}
+.auth-brand-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.auth-tabs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.auth-tab {
+  border: 0; background: transparent; cursor: pointer;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 10px 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: var(--t);
+}
+.auth-tab:hover { color: rgba(255, 255, 255, 0.85); }
+.auth-tab.is-active {
+  background: linear-gradient(180deg, #7c5cff, #6e56cf);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(124, 92, 255, 0.4);
+}
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-form .field-label { color: rgba(255, 255, 255, 0.7); }
+.auth-form input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  outline: none;
+  transition: var(--t);
+}
+.auth-form input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.auth-form input:focus {
+  border-color: rgba(124, 92, 255, 0.7);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18);
+}
+.auth-hint {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 4px 0 0;
+  text-align: center;
+}
+.auth-hint code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
 
-            <div class="profit-box">
-              <span class="profit-label" id="profit-label">Bénéfice estimé</span>
-              <span class="profit-value" id="profit-value">0,00 €</span>
-              <span class="profit-note" id="profit-note">Calculé automatiquement</span>
-            </div>
-          </div>
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.app-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+  background: var(--bg);
+}
 
-          <div class="add-col">
-            <span class="field-label">Prévisualisation</span>
-            <div class="preview-card">
-              <div class="preview-image">
-                <img id="preview-image" alt="" hidden />
-                <div class="preview-placeholder" id="preview-placeholder">
-                  <i data-lucide="image-off"></i>
-                </div>
-              </div>
-              <div class="preview-name" id="preview-name">Nom de l'article</div>
-              <div class="preview-brand" id="preview-brand">—</div>
-              <div class="preview-condition" id="preview-condition" hidden></div>
-              <div class="preview-row"><span>Achat</span><strong id="preview-buy">0,00 €</strong></div>
-              <div class="preview-row preview-row-sell field-listed field-sold"><span id="preview-sell-label">Vente</span><strong id="preview-sell">0,00 €</strong></div>
-              <div class="preview-row preview-row-ship field-listed field-sold"><span>Frais de port</span><strong id="preview-ship">0,00 €</strong></div>
-              <div class="preview-row preview-row-total field-listed field-sold"><span id="preview-profit-label">Bénéfice</span><strong id="preview-profit">0,00 €</strong></div>
-            </div>
-          </div>
+/* ===== SIDEBAR ===== */
+.sidebar {
+  background: var(--side-bg);
+  color: var(--side-text);
+  display: flex; flex-direction: column;
+  padding: 18px 14px;
+  border-right: 1px solid var(--side-border);
+  position: sticky; top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 30;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px 18px;
+  border-bottom: 1px solid var(--side-border);
+  margin-bottom: 14px;
+}
+.sidebar-logo {
+  width: 30px; height: 30px;
+  object-fit: contain;
+  border-radius: 8px;
+  filter: drop-shadow(0 2px 8px rgba(124, 92, 255, 0.4));
+}
+.sidebar-brand-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.sidebar-nav {
+  display: flex; flex-direction: column; gap: 4px;
+  flex: 1;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-weight: 500;
+  color: var(--side-text);
+  transition: var(--t);
+  cursor: pointer;
+}
+.nav-item:hover { background: var(--side-hover-bg); color: #fff; }
+.nav-item i {
+  width: 18px; height: 18px;
+  stroke-width: 2;
+}
+.nav-item.is-active {
+  background: linear-gradient(180deg, var(--side-active-bg-2), var(--side-active-bg));
+  color: var(--side-active);
+  box-shadow: 0 4px 12px rgba(124, 92, 255, 0.35);
+}
+.nav-item-admin { color: #f5b8b8; }
+.nav-item-admin:hover { color: #ffd6d6; }
+.nav-item-admin.is-active {
+  background: linear-gradient(180deg, #e94e4e, #c33);
+}
 
-          <div class="add-actions">
-            <button type="button" class="btn btn-ghost" data-action="cancel-add">Annuler</button>
-            <button type="submit" class="btn btn-primary" id="add-submit">Ajouter l'article</button>
-          </div>
-        </form>
-      </div>
-    </section>
+.sidebar-footer {
+  border-top: 1px solid var(--side-border);
+  padding-top: 12px;
+  margin-top: 14px;
+}
+.sidebar-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 6px;
+  margin-bottom: 6px;
+}
+.sidebar-user-avatar {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c5cff, #c084fc);
+  color: #fff;
+  display: grid; place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+.sidebar-user-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.1;
+}
+.sidebar-user-role {
+  color: var(--side-text-dim);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+.sidebar-logout {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--side-text-dim);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--t);
+}
+.sidebar-logout:hover { background: var(--side-hover-bg); color: #fff; }
 
-    <!-- STATS -->
-    <section class="view" data-view="stats" hidden>
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="bar-chart-3"></i>Statistiques</h1>
-        <div class="view-actions">
-          <label class="period-select">
-            <span>Période :</span>
-            <select id="stats-period">
-              <option value="7">7 jours</option>
-              <option value="30" selected>30 jours</option>
-              <option value="all">Tout</option>
-            </select>
-          </label>
-        </div>
-      </header>
+/* ===== MAIN ===== */
+.main {
+  min-width: 0;
+  padding: 28px 32px 60px;
+}
+.mobile-menu-btn {
+  display: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  margin-bottom: 16px;
+  color: var(--text);
+}
 
-      <div class="stats-mini-grid" id="stats-mini"></div>
+.view-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  box-shadow: var(--shadow-sm);
+}
+.view-header .period-select select {
+  background: var(--card-soft);
+}
+@media (max-width: 860px) {
+  .view-header { padding: 14px 16px; }
+}
+.view-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  margin: 0;
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text);
+}
+.view-title i { color: var(--text-2); }
+.view-actions { display: flex; align-items: center; gap: 10px; }
+.period-select {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.period-select select {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
 
-      <div class="card chart-card">
-        <div class="card-header">
-          <h2 class="card-title">Évolution détaillée</h2>
-        </div>
-        <div class="chart-wrap chart-wrap-tall">
-          <canvas id="chart-stats"></canvas>
-        </div>
-      </div>
+/* ===== CARDS ===== */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 18px;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
 
-      <div class="card">
-        <div class="card-header"><h2 class="card-title">Analyses</h2></div>
-        <div class="analysis-grid" id="stats-analysis"></div>
-      </div>
-    </section>
+/* ===== KPIs ===== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.kpi {
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  background: var(--p-neutral-bg);
+  color: var(--p-neutral-fg);
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 110px;
+  position: relative;
+  transition: transform var(--t), box-shadow var(--t);
+}
+.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.kpi-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.kpi-delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600;
+  margin-top: auto;
+}
+.kpi-delta.up { color: var(--p-green-fg); }
+.kpi-delta.down { color: var(--p-red-fg); }
+.kpi-sub {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: auto;
+}
 
-    <!-- STOCK (bulles) -->
-    <section class="view view-stock" data-view="stock" hidden>
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="boxes"></i>Mon stock</h1>
-        <div class="view-actions">
-          <div class="stock-kpis" id="stock-kpis"></div>
-          <button class="btn btn-ghost-bordered" id="stock-reset-view" title="Recentrer">
-            <i data-lucide="locate-fixed"></i><span>Recentrer</span>
-          </button>
-          <button class="btn btn-primary" data-action="goto-add-stock">
-            <i data-lucide="plus"></i><span>Ajouter au stock</span>
-          </button>
-        </div>
-      </header>
+.kpi-green { background: var(--p-green-bg); color: var(--p-green-fg); }
+.kpi-red { background: var(--p-red-bg); color: var(--p-red-fg); }
+.kpi-violet { background: var(--p-violet-bg); color: var(--p-violet-fg); }
+.kpi-yellow { background: var(--p-yellow-bg); color: var(--p-yellow-fg); }
+.kpi-blue { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.kpi-neutral { background: var(--p-neutral-bg); color: var(--p-neutral-fg); }
 
-      <div class="stock-canvas-wrap" id="stock-canvas-wrap">
-        <div class="stock-canvas" id="stock-canvas">
-          <!-- les bulles sont injectées ici, transformées par pan/zoom -->
-        </div>
-        <div class="stock-zoom-controls">
-          <button class="stock-zoom-btn" id="stock-zoom-in" aria-label="Zoomer"><i data-lucide="plus"></i></button>
-          <button class="stock-zoom-btn" id="stock-zoom-out" aria-label="Dézoomer"><i data-lucide="minus"></i></button>
-        </div>
-        <div class="stock-empty" id="stock-empty" hidden>
-          <i data-lucide="package-open"></i>
-          <h3>Votre stock est vide</h3>
-          <p>Ajoutez les articles que vous avez achetés et qui ne sont pas encore en vente.</p>
-          <button class="btn btn-primary" data-action="goto-add-stock"><i data-lucide="plus"></i>Ajouter au stock</button>
-        </div>
-        <div class="stock-hint" id="stock-hint">
-          <i data-lucide="move"></i> Glissez pour vous déplacer · molette/pinch pour zoomer
-        </div>
-      </div>
-    </section>
+/* ===== DASHBOARD GRID ===== */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 18px;
+}
+.chart-card { padding: 22px 22px 18px; }
+.chart-wrap {
+  position: relative;
+  height: 280px;
+}
+.chart-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+.chart-wrap-tall { height: 360px; }
+.summary-list { display: flex; flex-direction: column; gap: 10px; }
+.summary-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card-soft);
+  border: 1px solid var(--border-soft);
+}
+.summary-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+}
+.summary-icon-green { background: var(--p-green-bg); color: var(--p-green-fg); }
+.summary-icon-violet { background: var(--p-violet-bg); color: var(--p-violet-fg); }
+.summary-icon-blue { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.summary-text { flex: 1; min-width: 0; }
+.summary-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.summary-value {
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 2px;
+  color: var(--text);
+}
+.summary-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.summary-right {
+  text-align: right;
+  font-weight: 700;
+  color: var(--text);
+}
+.summary-right.up { color: var(--success); }
+.summary-right.down { color: var(--danger); }
 
-    <!-- SETTINGS -->
-    <section class="view" data-view="settings" hidden>
-      <header class="view-header">
-        <h1 class="view-title"><i data-lucide="settings"></i>Paramètres</h1>
-      </header>
+/* ===== STATS MINI ===== */
+.stats-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.stats-mini-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.stats-mini-label {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.stats-mini-label.tag-green { color: var(--success); }
+.stats-mini-label.tag-red { color: var(--danger); }
+.stats-mini-label.tag-violet { color: var(--primary); }
+.stats-mini-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+  color: var(--text);
+}
+.stats-mini-spark {
+  position: relative;
+  height: 40px;
+  margin-top: 8px;
+}
+.stats-mini-spark canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
 
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Thème</h2>
-        </div>
-        <p class="muted">Choisissez votre thème préféré</p>
-        <div class="theme-toggle" role="radiogroup">
-          <button class="theme-option" data-theme="light" role="radio">
-            <span class="theme-dot theme-dot-light"></span>Clair
-            <i data-lucide="check" class="theme-check"></i>
-          </button>
-          <button class="theme-option" data-theme="dark" role="radio">
-            <span class="theme-dot theme-dot-dark"></span>Sombre
-            <i data-lucide="check" class="theme-check"></i>
-          </button>
-        </div>
-      </div>
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.analysis-card {
+  border: 1px solid var(--border-soft);
+  background: var(--card-soft);
+  border-radius: 12px;
+  padding: 14px;
+}
+.analysis-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.analysis-value {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  margin-top: 4px;
+  color: var(--text);
+}
+.analysis-meta {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.analysis-meta.up { color: var(--success); font-weight: 600; }
 
-      <div class="card">
-        <div class="card-header"><h2 class="card-title">Données</h2></div>
-        <div class="settings-row">
-          <div class="settings-icon settings-icon-blue"><i data-lucide="download"></i></div>
-          <div class="settings-text">
-            <div class="settings-title">Exporter mes données</div>
-            <div class="settings-desc">Télécharger une sauvegarde de toutes vos données</div>
-          </div>
-          <button class="btn btn-ghost-bordered" id="export-btn">Exporter</button>
-        </div>
-        <div class="settings-row">
-          <div class="settings-icon settings-icon-blue"><i data-lucide="upload"></i></div>
-          <div class="settings-text">
-            <div class="settings-title">Importer des données</div>
-            <div class="settings-desc">Importer une sauvegarde existante</div>
-          </div>
-          <input type="file" id="import-input" accept="application/json" hidden />
-          <button class="btn btn-ghost-bordered" id="import-btn">Importer</button>
-        </div>
-        <div class="settings-row">
-          <div class="settings-icon settings-icon-red"><i data-lucide="trash-2"></i></div>
-          <div class="settings-text">
-            <div class="settings-title">Réinitialiser les données</div>
-            <div class="settings-desc">Supprimer toutes vos données (action irréversible)</div>
-          </div>
-          <button class="btn btn-danger" id="reset-btn">Réinitialiser</button>
-        </div>
-      </div>
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: var(--t);
+  white-space: nowrap;
+}
+.btn i { width: 16px; height: 16px; stroke-width: 2.2; }
+.btn-primary {
+  background: linear-gradient(180deg, var(--primary-2), var(--primary));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(124, 92, 255, 0.35);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(124, 92, 255, 0.45); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+.btn-ghost:hover { background: var(--bg-2); color: var(--text); }
+.btn-ghost-bordered {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-ghost-bordered:hover { background: var(--bg-2); }
+.btn-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+:root[data-theme="dark"] .btn-danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+.btn-danger:hover { background: #fecaca; }
+:root[data-theme="dark"] .btn-danger:hover { background: rgba(239, 68, 68, 0.22); }
+.btn-block { width: 100%; justify-content: center; padding: 12px 16px; }
+.btn-icon {
+  padding: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: var(--t);
+}
+.btn-icon:hover { background: var(--bg-2); color: var(--text); }
+.btn-icon.danger:hover { background: #fee2e2; color: var(--danger); }
+:root[data-theme="dark"] .btn-icon.danger:hover { background: rgba(239, 68, 68, 0.2); }
 
-      <div class="card">
-        <div class="card-header"><h2 class="card-title">À propos</h2></div>
-        <div class="about-row">
-          <div class="about-logo"><img src="logo.png" alt="" /></div>
-          <div>
-            <div class="about-name">SellTrack</div>
-            <div class="about-version">Version 1.0.0</div>
-            <div class="about-desc">Application de suivi de ventes Vinted</div>
-          </div>
-        </div>
-      </div>
-    </section>
+/* ===== FORMS ===== */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+}
+input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], input[type="date"], input[type="search"],
+select, textarea {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  outline: none;
+  transition: var(--t);
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary-2);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+select { cursor: pointer; }
 
-    <!-- ADMIN -->
-    <section class="view view-admin" data-view="admin" hidden>
-      <header class="view-header view-header-admin">
-        <h1 class="view-title">
-          <span class="admin-crown"><i data-lucide="shield"></i></span>
-          Administration
-          <span class="admin-pill">Premium</span>
-        </h1>
-        <div class="view-actions">
-          <button class="btn btn-ghost-bordered" id="admin-refresh-btn">
-            <i data-lucide="refresh-cw"></i><span>Actualiser</span>
-          </button>
-        </div>
-      </header>
+/* ===== SALES PAGE ===== */
+.sales-toolbar {
+  display: grid;
+  grid-template-columns: 1fr 200px 200px auto;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.search-input {
+  position: relative;
+}
+.search-input i {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-3);
+  width: 16px; height: 16px;
+}
+.search-input input {
+  padding-left: 38px;
+  background: var(--card-soft);
+}
+.filter-select {
+  background: var(--card-soft);
+}
+.view-toggle {
+  display: inline-flex;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+.view-toggle-btn {
+  background: transparent;
+  border: 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text-3);
+}
+.view-toggle-btn.is-active {
+  background: var(--card);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+.view-toggle-btn i { width: 16px; height: 16px; }
 
-      <div class="admin-shell">
-        <!-- Sidebar interne -->
-        <aside class="admin-sidebar" id="admin-sidebar">
-          <button class="admin-tab is-active" data-admin-tab="overview">
-            <i data-lucide="layout-grid"></i><span>Vue d'ensemble</span>
-          </button>
-          <button class="admin-tab" data-admin-tab="users">
-            <i data-lucide="users"></i><span>Utilisateurs</span>
-          </button>
-          <button class="admin-tab" data-admin-tab="sales">
-            <i data-lucide="receipt"></i><span>Toutes les ventes</span>
-          </button>
-          <button class="admin-tab" data-admin-tab="images">
-            <i data-lucide="image"></i><span>Images</span>
-          </button>
-          <button class="admin-tab" data-admin-tab="sql">
-            <i data-lucide="terminal"></i><span>SQL Editor</span>
-          </button>
-        </aside>
+/* List layout */
+.sales-list { display: flex; flex-direction: column; }
+.sale-item {
+  display: grid;
+  grid-template-columns: 60px 1.5fr repeat(4, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 6px;
+  border-top: 1px solid var(--border-soft);
+}
+.sale-item:first-child { border-top: 0; }
+.sale-image {
+  width: 60px; height: 60px;
+  border-radius: 12px;
+  background: var(--bg-2);
+  display: grid; place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sale-image img { width: 100%; height: 100%; object-fit: cover; }
+.sale-image i { color: var(--text-muted); }
+.sale-name-block { min-width: 0; }
+.sale-name {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 2px;
+  color: var(--text);
+}
+.sale-brand {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+.sale-condition {
+  display: inline-block;
+  font-size: 11.5px;
+  padding: 2px 8px;
+  background: var(--p-green-bg);
+  color: var(--p-green-fg);
+  border-radius: 6px;
+  font-weight: 600;
+}
+.sale-col-label {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.sale-col-value {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.sale-col-value.profit { color: var(--success); }
+.sale-col-value.loss { color: var(--danger); }
+.sale-actions {
+  display: flex; gap: 4px;
+  justify-content: flex-end;
+}
 
-        <!-- Contenu -->
-        <div class="admin-content">
+/* Grid layout */
+.sales-list.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.sales-list.grid .sale-item {
+  grid-template-columns: 1fr;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card-soft);
+}
+.sales-list.grid .sale-image {
+  width: 100%; height: 160px;
+  border-radius: 10px;
+}
+.sales-list.grid .sale-col {
+  display: flex; justify-content: space-between;
+  padding: 4px 0;
+}
+.sales-list.grid .sale-col-label { margin: 0; }
 
-          <!-- ============== OVERVIEW ============== -->
-          <div class="admin-pane is-active" data-admin-pane="overview">
-            <div class="kpi-grid kpi-grid-admin" id="admin-kpis"></div>
+/* Empty */
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  display: flex; flex-direction: column; gap: 10px;
+  align-items: center;
+}
+.empty-state i {
+  width: 48px; height: 48px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.empty-state h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text);
+}
+.empty-state p {
+  color: var(--text-3);
+  max-width: 380px;
+  margin: 0 0 12px;
+}
 
-            <div class="admin-grid-2col">
-              <div class="card chart-card">
-                <div class="card-header">
-                  <h2 class="card-title">Chiffre d'affaires (12 mois)</h2>
-                </div>
-                <div class="chart-wrap chart-wrap-tall">
-                  <canvas id="admin-chart-revenue"></canvas>
-                </div>
-              </div>
-              <div class="card chart-card">
-                <div class="card-header">
-                  <h2 class="card-title">Inscriptions (12 mois)</h2>
-                </div>
-                <div class="chart-wrap chart-wrap-tall">
-                  <canvas id="admin-chart-signups"></canvas>
-                </div>
-              </div>
-            </div>
+/* ===== ADD FORM ===== */
+.add-card { padding: 28px; }
+.add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.add-col { display: flex; flex-direction: column; gap: 14px; }
+.add-col .field { margin: 0; }
 
-            <div class="admin-grid-2col">
-              <div class="card">
-                <div class="card-header"><h2 class="card-title">Top 5 vendeurs</h2></div>
-                <div id="admin-top-sellers" class="top-list"></div>
-              </div>
-              <div class="card">
-                <div class="card-header"><h2 class="card-title">Activité récente</h2></div>
-                <div id="admin-activity" class="activity-list"></div>
-              </div>
-            </div>
+.dropzone {
+  position: relative;
+  display: grid; place-items: center;
+  height: 180px;
+  background: var(--card-soft);
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: var(--t);
+}
+.dropzone:hover { border-color: var(--primary-2); background: var(--primary-soft-2); }
+.dropzone.is-dragover { border-color: var(--primary); background: var(--primary-soft); }
+.dropzone img { width: 100%; height: 100%; object-fit: cover; }
+.dropzone-placeholder {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  color: var(--text-3);
+}
+.dropzone-placeholder i { width: 28px; height: 28px; }
 
-            <div class="admin-grid-2col">
-              <div class="card">
-                <div class="card-header"><h2 class="card-title">Top 10 marques</h2></div>
-                <div class="chart-wrap">
-                  <canvas id="admin-chart-brands"></canvas>
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-header"><h2 class="card-title">Répartition par état</h2></div>
-                <div class="chart-wrap">
-                  <canvas id="admin-chart-conditions"></canvas>
-                </div>
-              </div>
-            </div>
-          </div>
+.profit-box {
+  margin-top: auto;
+  background: var(--primary-soft-2);
+  border: 1px solid var(--primary-soft);
+  padding: 18px;
+  border-radius: 14px;
+  text-align: center;
+}
+.profit-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 4px;
+}
+.profit-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  display: block;
+}
+.profit-value.loss { color: var(--danger); }
+.profit-value.up { color: var(--success); }
+.profit-note {
+  font-size: 11.5px;
+  color: var(--text-3);
+  display: block;
+  margin-top: 4px;
+}
 
-          <!-- ============== USERS ============== -->
-          <div class="admin-pane" data-admin-pane="users" hidden>
-            <div class="card">
-              <div class="admin-toolbar">
-                <div class="search-input">
-                  <i data-lucide="search"></i>
-                  <input type="search" id="admin-users-search" placeholder="Rechercher un utilisateur..." />
-                </div>
-                <select id="admin-users-role" class="filter-select">
-                  <option value="">Tous les rôles</option>
-                  <option value="admin">Admin</option>
-                  <option value="user">Utilisateur</option>
-                </select>
-                <select id="admin-users-status" class="filter-select">
-                  <option value="">Tous les statuts</option>
-                  <option value="active">Actif</option>
-                  <option value="banned">Suspendu</option>
-                </select>
-              </div>
-              <div class="table-wrap">
-                <table class="data-table data-table-admin">
-                  <thead>
-                    <tr>
-                      <th>Utilisateur</th>
-                      <th>Email</th>
-                      <th>Rôle</th>
-                      <th class="text-right">Ventes</th>
-                      <th class="text-right">CA</th>
-                      <th class="text-right">Bénéfice</th>
-                      <th>Créé le</th>
-                      <th>Statut</th>
-                      <th class="text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="admin-users-tbody"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+.preview-card {
+  background: var(--card-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 16px;
+}
+.preview-image {
+  width: 100%; height: 180px;
+  border-radius: 10px;
+  background: var(--card);
+  display: grid; place-items: center;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.preview-image img { width: 100%; height: 100%; object-fit: cover; }
+.preview-placeholder { color: var(--text-muted); }
+.preview-placeholder i { width: 36px; height: 36px; }
+.preview-name {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.preview-brand {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+.preview-condition {
+  display: inline-block;
+  font-size: 11.5px;
+  padding: 2px 8px;
+  background: var(--p-green-bg);
+  color: var(--p-green-fg);
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.preview-row {
+  display: flex; justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.preview-row strong { color: var(--text); font-weight: 600; }
+.preview-row-total {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 6px;
+  padding-top: 10px;
+}
+.preview-row-total strong { color: var(--success); font-size: 15px; font-weight: 700; }
+.preview-row-total strong.loss { color: var(--danger); }
 
-          <!-- ============== ALL SALES ============== -->
-          <div class="admin-pane" data-admin-pane="sales" hidden>
-            <div class="card">
-              <div class="admin-toolbar">
-                <div class="search-input">
-                  <i data-lucide="search"></i>
-                  <input type="search" id="admin-sales-search" placeholder="Rechercher une vente..." />
-                </div>
-                <select id="admin-sales-user" class="filter-select">
-                  <option value="">Tous les utilisateurs</option>
-                </select>
-                <select id="admin-sales-brand" class="filter-select">
-                  <option value="">Toutes les marques</option>
-                </select>
-                <select id="admin-sales-condition" class="filter-select">
-                  <option value="">Tous les états</option>
-                  <option>Neuf avec étiquette</option>
-                  <option>Neuf sans étiquette</option>
-                  <option>Très bon état</option>
-                  <option>Bon état</option>
-                  <option>Satisfaisant</option>
-                </select>
-              </div>
-              <div class="table-wrap">
-                <table class="data-table data-table-admin">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>Article</th>
-                      <th>Propriétaire</th>
-                      <th>Marque</th>
-                      <th>État</th>
-                      <th class="text-right">Achat</th>
-                      <th class="text-right">Vente</th>
-                      <th class="text-right">Bénéfice</th>
-                      <th>Date</th>
-                      <th class="text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="admin-sales-tbody"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+.add-actions {
+  grid-column: 1 / -1;
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 6px;
+}
 
-          <!-- ============== IMAGES ============== -->
-          <div class="admin-pane" data-admin-pane="images" hidden>
-            <div class="card">
-              <div class="admin-toolbar">
-                <div class="search-input">
-                  <i data-lucide="search"></i>
-                  <input type="search" id="admin-images-search" placeholder="Rechercher par utilisateur..." />
-                </div>
-                <div class="admin-images-stats" id="admin-images-stats">
-                  <span></span>
-                </div>
-              </div>
-              <div class="image-gallery" id="admin-image-gallery"></div>
-              <div class="empty-state" id="admin-images-empty" hidden>
-                <i data-lucide="image-off"></i>
-                <h3>Aucune image</h3>
-                <p>Aucune image n'a encore été uploadée par les utilisateurs.</p>
-              </div>
-            </div>
-          </div>
+/* ===== SETTINGS ===== */
+.muted { color: var(--text-3); margin-top: -6px; margin-bottom: 14px; font-size: 13px; }
+.theme-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  max-width: 380px;
+}
+.theme-option {
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  position: relative;
+  transition: var(--t);
+}
+.theme-option:hover { border-color: var(--primary-2); }
+.theme-option.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft-2);
+}
+.theme-dot { width: 14px; height: 14px; border-radius: 50%; }
+.theme-dot-light { background: linear-gradient(135deg, #fff, #e0e0ff); border: 1px solid var(--border); }
+.theme-dot-dark { background: #0b0e1a; border: 1px solid #1d2340; }
+.theme-check {
+  margin-left: auto;
+  width: 16px; height: 16px;
+  color: var(--primary);
+  opacity: 0;
+}
+.theme-option.is-active .theme-check { opacity: 1; }
 
-          <!-- ============== SQL EDITOR ============== -->
-          <div class="admin-pane" data-admin-pane="sql" hidden>
-            <div class="card sql-card">
-              <div class="card-header">
-                <h2 class="card-title">SQL Editor <span class="readonly-pill">Lecture seule</span></h2>
-              </div>
-              <div class="sql-templates" id="sql-templates"></div>
-              <textarea id="sql-input" class="sql-input" spellcheck="false"
-                placeholder="-- Tape une requête SELECT...&#10;select * from profiles order by created_at desc limit 10;"></textarea>
-              <div class="sql-actions">
-                <button class="btn btn-primary" id="sql-run-btn">
-                  <i data-lucide="play"></i><span>Exécuter</span>
-                </button>
-                <button class="btn btn-ghost-bordered" id="sql-clear-btn">
-                  <i data-lucide="eraser"></i><span>Effacer</span>
-                </button>
-                <span class="sql-info" id="sql-info"></span>
-              </div>
-            </div>
-            <div class="card" id="sql-results-card" hidden>
-              <div class="card-header">
-                <h2 class="card-title">Résultats</h2>
-                <button class="btn btn-ghost-bordered" id="sql-export-btn">
-                  <i data-lucide="download"></i><span>Exporter CSV</span>
-                </button>
-              </div>
-              <div class="table-wrap sql-results-wrap">
-                <table class="data-table" id="sql-results-table"></table>
-              </div>
-            </div>
-          </div>
+.settings-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.settings-row:first-of-type { border-top: 0; padding-top: 4px; }
+.settings-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+}
+.settings-icon-blue { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.settings-icon-red { background: var(--p-red-bg); color: var(--p-red-fg); }
+.settings-text { flex: 1; }
+.settings-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.settings-desc {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
 
-        </div>
-      </div>
-    </section>
-  </main>
-</div>
+.about-row {
+  display: flex; align-items: center; gap: 14px;
+}
+.about-logo {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: var(--side-bg);
+  display: grid; place-items: center;
+  padding: 6px;
+}
+.about-logo img { width: 100%; height: 100%; object-fit: contain; }
+.about-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text);
+}
+.about-version { font-size: 12px; color: var(--text-3); }
+.about-desc { font-size: 12.5px; color: var(--text-3); margin-top: 4px; }
 
-<!-- ===================== MODAL / TOAST ===================== -->
-<div id="modal-root" class="modal-root" hidden>
-  <div class="modal-overlay" data-close="modal"></div>
-  <div class="modal-window" role="dialog" aria-modal="true">
-    <header class="modal-head">
-      <h3 id="modal-title">Confirmation</h3>
-      <button class="modal-close" data-close="modal" aria-label="Fermer"><i data-lucide="x"></i></button>
-    </header>
-    <div class="modal-body" id="modal-body"></div>
-    <footer class="modal-foot" id="modal-foot"></footer>
-  </div>
-</div>
+/* ===== ADMIN ===== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table-wrap { overflow-x: auto; }
+.data-table th, .data-table td {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 13.5px;
+}
+.data-table th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.data-table tr td {
+  border-bottom: 1px solid var(--border-soft);
+}
+.data-table tr:last-child td { border-bottom: 0; }
+.text-right { text-align: right; }
+.user-cell {
+  display: flex; align-items: center; gap: 10px;
+}
+.user-avatar {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7c5cff, #c084fc);
+  color: #fff;
+  display: grid; place-items: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.badge-admin { background: var(--p-violet-bg); color: var(--p-violet-fg); }
+.badge-user { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.badge-active { background: var(--p-green-bg); color: var(--p-green-fg); }
+.badge-banned { background: var(--p-red-bg); color: var(--p-red-fg); }
 
-<div id="toast-root" class="toast-root" aria-live="polite"></div>
+/* ===== MODAL ===== */
+.modal-root {
+  position: fixed; inset: 0;
+  z-index: 100;
+  display: grid; place-items: center;
+}
+.modal-overlay {
+  position: absolute; inset: 0;
+  background: rgba(15, 19, 34, 0.5);
+  backdrop-filter: blur(4px);
+}
+.modal-window {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: modalPop 0.18s ease;
+}
+@keyframes modalPop {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.modal-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+}
+.modal-close {
+  background: transparent; border: 0;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid; place-items: center;
+  color: var(--text-3);
+}
+.modal-close:hover { background: var(--bg-2); color: var(--text); }
+.modal-body { padding: 20px 22px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+.modal-foot {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--card-soft);
+}
 
-<script src="app.js"></script>
-</body>
-</html>
+/* ===== TOAST ===== */
+.toast-root {
+  position: fixed;
+  right: 20px; bottom: 20px;
+  display: flex; flex-direction: column; gap: 10px;
+  z-index: 1000;
+}
+.toast {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  min-width: 260px;
+  animation: toastIn 0.2s ease;
+  color: var(--text);
+}
+@keyframes toastIn {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.toast i { width: 18px; height: 18px; flex-shrink: 0; }
+.toast.success i { color: var(--success); }
+.toast.error i { color: var(--danger); }
+.toast.info i { color: var(--primary); }
+.toast-text {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1100px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .sales-toolbar { grid-template-columns: 1fr 1fr; }
+  .sales-toolbar .search-input { grid-column: 1 / -1; }
+  .add-grid { grid-template-columns: 1fr 1fr; }
+  .stats-mini-grid { grid-template-columns: 1fr; }
+  .analysis-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; left: -280px; top: 0; bottom: 0;
+    width: 260px; height: 100vh;
+    transition: left 0.25s ease;
+    z-index: 50;
+  }
+  .sidebar.is-open { left: 0; }
+  .mobile-menu-btn { display: inline-flex; }
+  .main { padding: 16px 18px 60px; }
+  .view-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .add-grid { grid-template-columns: 1fr; }
+  .sale-item {
+    grid-template-columns: 60px 1fr auto;
+    gap: 10px;
+  }
+  .sale-item > div:nth-child(n+3):not(:last-child) { display: none; }
+  .sales-toolbar { grid-template-columns: 1fr 1fr; }
+  .sales-toolbar .view-toggle { grid-column: 1 / -1; justify-self: start; }
+}
+
+/* Scrollbar — discreet */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(120, 120, 140, 0.25); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 120, 140, 0.4); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Mobile overlay when sidebar is open */
+.sidebar-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 40;
+  display: none;
+}
+.sidebar-backdrop.is-open { display: block; }
+
+/* ============================================================
+   PWA — bouton flottant "Installer l'app"
+   ============================================================ */
+.install-btn-floating {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: linear-gradient(180deg, var(--primary-2), var(--primary));
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(124, 92, 255, 0.45);
+  z-index: 90;
+  animation: installSlideIn 0.4s ease;
+  transition: transform var(--t), box-shadow var(--t);
+}
+.install-btn-floating:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(124, 92, 255, 0.55);
+}
+.install-btn-floating i { width: 16px; height: 16px; stroke-width: 2.2; }
+@keyframes installSlideIn {
+  from { transform: translateY(80px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (max-width: 480px) {
+  .install-btn-floating { right: 12px; bottom: 12px; padding: 10px 14px; font-size: 12.5px; }
+}
+
+/* Quand l'app tourne en mode standalone (PWA installée), légères adaptations */
+@media (display-mode: standalone) {
+  /* iPhone notch / Android gesture bar safe-areas */
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .sidebar { padding-top: max(18px, env(safe-area-inset-top)); }
+  .main { padding-top: max(28px, env(safe-area-inset-top)); }
+}
+
+/* Badge "Synchronisé" en mode cloud */
+.cloud-badge {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 70;
+  pointer-events: none;
+  animation: cloudBadgeIn 0.5s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.cloud-badge.is-fading {
+  opacity: 0;
+  transform: translate(-50%, 20px);
+}
+:root[data-theme="dark"] .cloud-badge {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.cloud-badge i { width: 13px; height: 13px; }
+@keyframes cloudBadgeIn {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+@media (max-width: 480px) {
+  .cloud-badge { bottom: 78px; } /* au-dessus du bouton install */
+}
+
+/* ============================================================
+   ADMIN PANEL — Premium design
+   ============================================================ */
+
+.view-header-admin {
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.12), rgba(99, 102, 241, 0.08)) , var(--card);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.view-header-admin::before {
+  content: '';
+  position: absolute;
+  right: -50px; top: -50px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.25), transparent 70%);
+  pointer-events: none;
+}
+.view-header-admin .view-title {
+  display: flex; align-items: center; gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+.admin-crown {
+  display: inline-grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c5cff, #6e56cf);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(124, 92, 255, 0.4);
+}
+.admin-crown i { width: 18px; height: 18px; }
+.admin-pill {
+  display: inline-block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+/* ===== Admin shell : sidebar + content ===== */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.admin-sidebar {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 18px;
+}
+.admin-tab {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-2);
+  text-align: left;
+  transition: var(--t);
+}
+.admin-tab i { width: 17px; height: 17px; flex-shrink: 0; }
+.admin-tab:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+.admin-tab.is-active {
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.12), rgba(124, 92, 255, 0.06));
+  color: var(--primary);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+:root[data-theme="dark"] .admin-tab.is-active {
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.2), rgba(124, 92, 255, 0.1));
+  color: #c4b5fd;
+}
+
+.admin-content { min-width: 0; }
+.admin-pane { animation: paneFadeIn 0.25s ease; }
+@keyframes paneFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== KPI grid admin (plus marqué) ===== */
+.kpi-grid-admin {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.kpi-grid-admin .kpi {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-grid-admin .kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, currentColor 0%, transparent 50%);
+  opacity: 0.08;
+  pointer-events: none;
+}
+.kpi-grid-admin .kpi-value { font-size: 24px; }
+
+/* ===== Admin 2-col grid ===== */
+.admin-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+.admin-grid-2col > * { margin: 0; }
+
+/* ===== Top list (top sellers) ===== */
+.top-list { display: flex; flex-direction: column; gap: 8px; }
+.top-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--card-soft);
+  border: 1px solid var(--border-soft);
+}
+.top-rank {
+  display: grid; place-items: center;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 12px;
+}
+.top-rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; }
+.top-rank-2 { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #1f2937; }
+.top-rank-3 { background: linear-gradient(135deg, #fbab7e, #f7ce68); color: #78350f; }
+.top-rank-other { background: var(--bg-2); color: var(--text-2); }
+
+.top-info { min-width: 0; }
+.top-name {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.top-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.top-value {
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--success);
+  font-size: 14px;
+  text-align: right;
+}
+
+/* ===== Activity list ===== */
+.activity-list { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; }
+.activity-item {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--card-soft);
+  border: 1px solid var(--border-soft);
+}
+.activity-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+}
+.activity-icon i { width: 15px; height: 15px; }
+.activity-icon-signup { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.activity-icon-sale { background: var(--p-green-bg); color: var(--p-green-fg); }
+.activity-text { min-width: 0; }
+.activity-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.activity-meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.activity-time {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* ===== Admin toolbar ===== */
+.admin-toolbar {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 180px);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.admin-toolbar .search-input { background: var(--card-soft); }
+
+/* ===== Admin data tables — enhanced ===== */
+.data-table-admin tr { transition: var(--t); }
+.data-table-admin tbody tr:hover { background: var(--card-soft); }
+.data-table-admin td { vertical-align: middle; }
+.data-table-admin .num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.data-table-admin .num.positive { color: var(--success); }
+.data-table-admin .num.negative { color: var(--danger); }
+.sale-thumb {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg-2);
+  display: block;
+}
+.sale-thumb-placeholder {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  display: grid; place-items: center;
+  color: var(--text-muted);
+}
+.sale-thumb-placeholder i { width: 16px; height: 16px; }
+
+/* ===== Image gallery ===== */
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.image-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-soft);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: var(--t);
+}
+.image-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.image-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.image-tile-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.75));
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.image-tile-size { font-weight: 700; }
+.image-tile-delete {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 0;
+  color: #fff;
+  cursor: pointer;
+  display: grid; place-items: center;
+  opacity: 0;
+  transition: var(--t);
+}
+.image-tile:hover .image-tile-delete { opacity: 1; }
+.image-tile-delete:hover { background: var(--danger); }
+.image-tile-delete i { width: 15px; height: 15px; }
+
+.admin-images-stats {
+  display: flex; align-items: center;
+  padding: 0 12px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* ===== SQL Editor ===== */
+.sql-card { padding: 20px; }
+.readonly-pill {
+  display: inline-block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--p-yellow-bg);
+  color: var(--p-yellow-fg);
+  font-weight: 700;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.sql-templates {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 14px;
+}
+.sql-template-btn {
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  padding: 6px 12px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--text-2);
+  transition: var(--t);
+}
+.sql-template-btn:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary-2);
+  color: var(--primary);
+}
+.sql-input {
+  width: 100%;
+  min-height: 140px;
+  background: #0f1322;
+  color: #e2e8f0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
+  caret-color: var(--primary-2);
+}
+.sql-input:focus {
+  border-color: var(--primary-2);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+:root[data-theme="dark"] .sql-input {
+  background: #060912;
+  border-color: var(--border);
+}
+.sql-actions {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px;
+}
+.sql-info {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.sql-info.error { color: var(--danger); }
+.sql-info.success { color: var(--success); }
+.sql-results-wrap { max-height: 500px; }
+.sql-results-wrap table {
+  font-size: 12.5px;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+}
+.sql-results-wrap th {
+  position: sticky; top: 0;
+  background: var(--card);
+  z-index: 2;
+}
+
+/* ===== Empty states harmonized ===== */
+.admin-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-3);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1100px) {
+  .admin-grid-2col { grid-template-columns: 1fr; }
+  .admin-toolbar { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 860px) {
+  .admin-shell { grid-template-columns: 1fr; }
+  .admin-sidebar {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px;
+    gap: 6px;
+  }
+  .admin-tab { white-space: nowrap; flex-shrink: 0; }
+  .admin-tab.is-active { box-shadow: inset 0 -3px 0 var(--primary); }
+  .admin-tab span { display: none; }
+  .admin-tab i { width: 18px; height: 18px; }
+  .admin-toolbar { grid-template-columns: 1fr; }
+  .data-table-admin { font-size: 12px; }
+}
+
+/* ============================================================
+   STATUTS D'ARTICLES (stock / listed / sold)
+   ============================================================ */
+.status-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot-stock { background: #3b82f6; }
+.status-dot-listed { background: #ef4444; }
+.status-dot-sold { background: #22c55e; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.status-badge-stock { background: var(--p-blue-bg); color: var(--p-blue-fg); }
+.status-badge-listed { background: var(--p-red-bg); color: var(--p-red-fg); }
+.status-badge-sold { background: var(--p-green-bg); color: var(--p-green-fg); }
+
+/* Onglets de statut (dans Articles) */
+.status-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.status-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 0;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: var(--t);
+}
+.status-tab:hover { color: var(--text); }
+.status-tab.is-active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================================
+   SÉLECTEUR DE STATUT (formulaire d'ajout)
+   ============================================================ */
+.status-selector {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.status-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 14px 16px;
+  background: var(--card-soft);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: var(--t);
+  text-align: left;
+}
+.status-choice:hover { border-color: var(--text-3); }
+.status-choice .status-dot { width: 11px; height: 11px; margin-bottom: 2px; }
+.status-choice-label { font-weight: 700; font-size: 14px; color: var(--text); }
+.status-choice-desc { font-size: 11.5px; color: var(--text-3); }
+.status-choice.is-active {
+  background: var(--primary-soft-2);
+  border-color: var(--primary);
+}
+.status-choice.is-active[data-status="stock"] { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+.status-choice.is-active[data-status="listed"] { border-color: #ef4444; background: rgba(239,68,68,0.07); }
+.status-choice.is-active[data-status="sold"] { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+
+/* Champs conditionnels : cachés par défaut, affichés selon le statut actif */
+/* Champs conditionnels : cachés par défaut */
+.field-stock, .field-listed, .field-sold { display: none !important; }
+/* Réaffiche ceux du mode actif. Un champ multi-modes (ex: field-listed field-sold)
+   reste visible tant que l'un de ses modes = mode actif. */
+.add-form-mode-stock .field-stock,
+.add-form-mode-listed .field-listed,
+.add-form-mode-sold .field-sold { display: flex !important; }
+
+/* ============================================================
+   SALE ITEM — badge statut + bénéfice estimé
+   ============================================================ */
+.sale-status-badge {
+  margin-top: 4px;
+}
+.profit-estimated {
+  font-style: italic;
+  opacity: 0.85;
+}
+.sale-col-value.estimated::after {
+  content: ' ~';
+  opacity: 0.6;
+}
+
+/* ============================================================
+   MODALE DÉTAILS ARTICLE
+   ============================================================ */
+.detail-modal-img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--bg-2);
+  margin-bottom: 16px;
+}
+.detail-rows { display: flex; flex-direction: column; gap: 2px; }
+.detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 14px;
+}
+.detail-row:last-child { border-bottom: 0; }
+.detail-row-label { color: var(--text-3); font-weight: 500; }
+.detail-row-value { font-weight: 700; color: var(--text); }
+.detail-row-value.positive { color: var(--success); }
+.detail-row-value.negative { color: var(--danger); }
+
+/* ============================================================
+   VUE STOCK — bulles draggables
+   ============================================================ */
+.view-stock { display: flex; flex-direction: column; height: calc(100vh - 56px); }
+.stock-kpis {
+  display: flex; gap: 16px;
+  margin-right: 8px;
+}
+.stock-kpi {
+  display: flex; flex-direction: column;
+  align-items: flex-end;
+}
+.stock-kpi-value {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text);
+  line-height: 1;
+}
+.stock-kpi-label {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.stock-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 480px;
+  background:
+    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+  background-size: 28px 28px;
+  background-color: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.stock-canvas-wrap.is-grabbing { cursor: grabbing; }
+.stock-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform-origin: 0 0;
+}
+
+/* Hub central */
+.stock-hub {
+  position: absolute;
+  display: grid; place-items: center;
+  width: 150px; height: 150px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 3px solid var(--text);
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  z-index: 5;
+}
+
+/* Bulle d'un groupe d'articles */
+.stock-bubble {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid var(--card);
+  box-shadow: var(--shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  background: var(--bg-2);
+}
+.stock-bubble:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-lg);
+  z-index: 6;
+}
+.stock-bubble img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.stock-bubble-placeholder {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--primary-2), var(--primary));
+  color: #fff;
+}
+.stock-bubble-placeholder i { width: 32px; height: 32px; }
+.stock-bubble-label {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 6px 8px 8px;
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.78));
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stock-bubble-qty {
+  position: absolute;
+  top: 6px; right: 6px;
+  min-width: 24px; height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: grid; place-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  border: 2px solid var(--card);
+}
+
+/* Lien (trait pointillé hub → bulle) en SVG */
+.stock-links {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+.stock-link {
+  stroke: var(--border);
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  fill: none;
+}
+
+.stock-hint {
+  position: absolute;
+  left: 50%; bottom: 16px;
+  transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-3);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  z-index: 8;
+}
+.stock-hint i { width: 14px; height: 14px; }
+
+.stock-empty {
+  position: absolute;
+  inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px;
+  z-index: 10;
+}
+.stock-empty i { width: 52px; height: 52px; color: var(--text-muted); }
+.stock-empty h3 { margin: 0; font-family: var(--font-display); font-size: 20px; color: var(--text); }
+.stock-empty p { color: var(--text-3); max-width: 360px; margin: 0 0 12px; }
+
+@media (max-width: 860px) {
+  .view-stock { height: calc(100vh - 100px); }
+  .stock-kpis { display: none; }
+  .stock-hint { font-size: 11px; padding: 6px 10px; }
+}
+
+/* ============================================================
+   QUANTITÉ — stepper +/-
+   ============================================================ */
+.qty-stepper {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  height: 44px;
+  width: 100%;
+  max-width: 200px;
+}
+.qty-stepper input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  background: transparent;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.qty-stepper input:focus {
+  outline: none;
+  background: var(--primary-soft-2);
+  box-shadow: none;
+}
+.qty-btn {
+  flex: 0 0 44px;
+  width: 44px;
+  border: 0;
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--t);
+  line-height: 1;
+  user-select: none;
+  padding: 0;
+}
+.qty-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.qty-btn:active { transform: scale(0.94); }
+.qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--card-soft);
+  color: var(--text-3);
+}
+
+.field-hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: -2px;
+}
+
+/* ============================================================
+   STOCK — Contrôles de zoom flottants
+   ============================================================ */
+.stock-zoom-controls {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 9;
+}
+.stock-zoom-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: var(--t);
+}
+.stock-zoom-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  transform: scale(1.05);
+}
+.stock-zoom-btn:active { transform: scale(0.95); }
+.stock-zoom-btn i { width: 20px; height: 20px; stroke-width: 2.5; }
