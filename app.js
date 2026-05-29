@@ -1128,11 +1128,30 @@
   $$('#status-selector .status-choice').forEach(b =>
     b.addEventListener('click', () => setAddFormStatus(b.dataset.status)));
 
+  // Stepper quantité (+ / -)
+  const qtyInput = $('#add-quantity');
+  const qtyHint = $('#qty-hint');
+  const clampQty = (n) => Math.min(50, Math.max(1, Math.floor(Number(n) || 1)));
+  const updateQtyHint = () => {
+    const n = clampQty(qtyInput.value);
+    qtyHint.textContent = n === 1 ? '1 exemplaire ajouté au stock'
+      : `${n} exemplaires identiques ajoutés au stock`;
+  };
+  $$('[data-qty-step]').forEach(btn => btn.addEventListener('click', () => {
+    qtyInput.value = clampQty(Number(qtyInput.value) + Number(btn.dataset.qtyStep));
+    updateQtyHint();
+  }));
+  qtyInput.addEventListener('input', () => {
+    qtyInput.value = clampQty(qtyInput.value);
+    updateQtyHint();
+  });
+
   const prepareAddForm = () => {
     const form = $('#add-form');
     form.reset();
     addImageData = null;
     addImageFile = null;
+    if (form.quantity) form.quantity.value = 1;
 
     const isEdit = !!addEditingId;
     $('#add-title').textContent = isEdit ? 'Modifier l\'article' : 'Ajouter un article';
@@ -1164,6 +1183,7 @@
 
     updateDropzone();
     updatePreview();
+    updateQtyHint();
   };
 
   const updateDropzone = () => {
@@ -1294,20 +1314,27 @@
         }
         toast('Article mis à jour.', 'success');
       } else {
-        if (isCloud()) {
-          const created = await Cloud().sales.create(payload);
-          store.sales.push(created);
-        } else {
-          store.sales.push({
-            id: uid(),
-            userId: currentUser.id,
-            createdAt: new Date().toISOString(),
-            ...payload,
-          });
-          saveStore();
+        // Quantité : on duplique N fois en mode stock, sinon 1
+        const fd2 = new FormData($('#add-form'));
+        const qty = status === 'stock' ? Math.min(50, Math.max(1, Math.floor(Number(fd2.get('quantity')) || 1))) : 1;
+        for (let i = 0; i < qty; i++) {
+          if (isCloud()) {
+            const created = await Cloud().sales.create(payload);
+            store.sales.push(created);
+          } else {
+            store.sales.push({
+              id: uid(),
+              userId: currentUser.id,
+              createdAt: new Date().toISOString(),
+              ...payload,
+            });
+          }
         }
-        toast(status === 'stock' ? 'Article ajouté au stock.'
-          : status === 'listed' ? 'Article mis en vente.' : 'Vente enregistrée.', 'success');
+        if (!isCloud()) saveStore();
+        const msg = status === 'stock'
+          ? (qty === 1 ? 'Article ajouté au stock.' : `${qty} exemplaires ajoutés au stock.`)
+          : status === 'listed' ? 'Article mis en vente.' : 'Vente enregistrée.';
+        toast(msg, 'success');
       }
       const goStatus = status;
       addEditingId = null;
