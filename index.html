@@ -308,6 +308,15 @@
               <span class="field-label">Prix d'achat</span>
               <input type="number" name="buyPrice" min="0" step="0.01" required placeholder="0,00 €" />
             </label>
+            <label class="field field-stock">
+              <span class="field-label">Quantité</span>
+              <div class="qty-stepper">
+                <button type="button" class="qty-btn" data-qty-step="-1" aria-label="Diminuer">−</button>
+                <input type="number" name="quantity" id="add-quantity" min="1" max="50" step="1" value="1" />
+                <button type="button" class="qty-btn" data-qty-step="1" aria-label="Augmenter">+</button>
+              </div>
+              <span class="field-hint" id="qty-hint">1 exemplaire ajouté au stock</span>
+            </label>
             <label class="field field-listed field-sold">
               <span class="field-label"><span id="sell-price-label">Prix de vente</span></span>
               <input type="number" name="sellPrice" min="0" step="0.01" placeholder="0,00 €" />
